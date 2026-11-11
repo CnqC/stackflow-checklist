@@ -1,5 +1,13 @@
 import type { RealtimeChannel } from '@supabase/supabase-js';
 import {
+  normalizeAssigneeIds,
+  sanitizeSubtaskItem,
+  sanitizeWorkspaceSnapshot,
+  type RawWorkspaceSnapshotInput,
+} from '../core/domain/dataValidator';
+import { detectNewAssignmentNotices } from '../core/domain/notificationDiffEngine';
+import { domainEventBus } from '../core/events/domainEventBus';
+import {
   canAddMember,
   createSeedWorkspaceSnapshot,
   detectPlatform,
@@ -10,7 +18,9 @@ import {
   sortByPosition,
   STACK_PALETTE,
 } from '../domain/stackDomain';
+import { notificationService } from '../infrastructure/notifications/notificationService';
 import {
+  CURRENT_SCHEMA_VERSION,
   MAX_TEAM_MEMBERS,
   type ActivityLog,
   type ChecklistItem,
@@ -38,6 +48,37 @@ interface LocalDbStore {
 type SnapshotListener = (snapshot: WorkspaceSnapshot) => void;
 type PresenceListener = (peers: PresencePeer[]) => void;
 type SyncModeListener = (mode: SyncMode) => void;
+
+export interface AddChecklistItemInput {
+  stackId: string;
+  title: string;
+  assigneeId?: string | null;
+  assigneeIds?: string[];
+  priority?: TaskPriority;
+  dueDate?: string | null;
+  subtasks?: SubtaskItem[];
+  actor: Member;
+}
+
+export type ChecklistItemPatch = Partial<
+  Pick<
+    ChecklistItem,
+    | 'title'
+    | 'notes'
+    | 'status'
+    | 'priority'
+    | 'assigneeId'
+    | 'assigneeIds'
+    | 'dueDate'
+    | 'subtasks'
+    | 'links'
+    | 'stackId'
+  >
+>;
+
+function isMissingAssigneeIdsColumnError(message: string | undefined): boolean {
+  return typeof message === 'string' && /assignee_ids/i.test(message);
+}
 
 // ============================================================================
 // Row Mappers for Supabase (snake_case <-> camelCase)
@@ -87,6 +128,7 @@ interface DbItemRow {
   priority: TaskPriority;
   completed: boolean;
   assignee_id: string | null;
+  assignee_ids?: string[] | null;
   due_date: string | null;
   position: number;
   subtasks: SubtaskItem[] | null;
@@ -119,6 +161,7 @@ function mapWorkspaceFromDb(r: DbWorkspaceRow): Workspace {
     description: r.description ?? '',
     pinCode: r.pin_code,
     maxMembers: r.max_members ?? MAX_TEAM_MEMBERS,
+    schemaVersion: CURRENT_SCHEMA_VERSION,
     createdAt: r.created_at,
     updatedAt: r.updated_at,
   };
@@ -152,6 +195,13 @@ function mapStackFromDb(r: DbStackRow): StackGroup {
 }
 
 function mapItemFromDb(r: DbItemRow): ChecklistItem {
+  const hasExplicitAssigneeArray =
+    Array.isArray(r.assignee_ids) && (r.assignee_ids.length > 0 || !r.assignee_id);
+  const assigneeIds = normalizeAssigneeIds(
+    hasExplicitAssigneeArray ? r.assignee_ids : undefined,
+    r.assignee_id,
+  );
+
   return {
     id: r.id,
     workspaceId: r.workspace_id,
@@ -161,7 +211,8 @@ function mapItemFromDb(r: DbItemRow): ChecklistItem {
     status: r.status ?? (r.completed ? 'done' : 'todo'),
     priority: r.priority ?? 'medium',
     completed: Boolean(r.completed),
-    assigneeId: r.assignee_id,
+    assigneeId: assigneeIds[0] ?? null,
+    assigneeIds,
     dueDate: r.due_date,
     position: r.position ?? 0,
     subtasks: Array.isArray(r.subtasks) ? r.subtasks : [],
@@ -190,26 +241,32 @@ function mapActivityFromDb(r: DbActivityRow): ActivityLog {
 }
 
 // ============================================================================
-// Local Storage Helpers
+// Local Storage Helpers (Guarded by sanitizeWorkspaceSnapshot)
 // ============================================================================
 
 function readLocalDb(): LocalDbStore {
   if (typeof window === 'undefined') {
-    const demo = createSeedWorkspaceSnapshot();
+    const demo = sanitizeWorkspaceSnapshot(createSeedWorkspaceSnapshot());
     return { workspaces: { [demo.workspace.code]: demo } };
   }
   try {
     const raw = window.localStorage.getItem(LOCAL_DB_KEY);
     if (raw) {
-      const parsed = JSON.parse(raw) as LocalDbStore;
-      if (parsed && typeof parsed.workspaces === 'object') {
-        return parsed;
+      const parsed = JSON.parse(raw) as { workspaces?: Record<string, RawWorkspaceSnapshotInput> };
+      if (parsed && typeof parsed.workspaces === 'object' && parsed.workspaces !== null) {
+        const sanitizedWorkspaces: Record<string, WorkspaceSnapshot> = {};
+        for (const [roomKey, rawSnap] of Object.entries(parsed.workspaces)) {
+          if (rawSnap && rawSnap.workspace) {
+            sanitizedWorkspaces[roomKey] = sanitizeWorkspaceSnapshot(rawSnap);
+          }
+        }
+        return { workspaces: sanitizedWorkspaces };
       }
     }
   } catch {
     // Fallback to seed
   }
-  const demo = createSeedWorkspaceSnapshot();
+  const demo = sanitizeWorkspaceSnapshot(createSeedWorkspaceSnapshot());
   const initial: LocalDbStore = {
     workspaces: {
       [demo.workspace.code]: demo,
@@ -221,7 +278,11 @@ function readLocalDb(): LocalDbStore {
 
 function writeLocalDb(store: LocalDbStore): void {
   if (typeof window === 'undefined') return;
-  window.localStorage.setItem(LOCAL_DB_KEY, JSON.stringify(store));
+  const sanitizedWorkspaces: Record<string, WorkspaceSnapshot> = {};
+  for (const [roomKey, snap] of Object.entries(store.workspaces)) {
+    sanitizedWorkspaces[roomKey] = sanitizeWorkspaceSnapshot(snap);
+  }
+  window.localStorage.setItem(LOCAL_DB_KEY, JSON.stringify({ workspaces: sanitizedWorkspaces }));
 }
 
 // ============================================================================
@@ -267,6 +328,10 @@ export class StackFlowSyncService {
     return this.currentSnapshot;
   }
 
+  public getActiveMember(): Member | null {
+    return this.activeMember;
+  }
+
   public subscribeSnapshot(listener: SnapshotListener): () => void {
     this.snapshotListeners.add(listener);
     if (this.currentSnapshot) {
@@ -285,17 +350,49 @@ export class StackFlowSyncService {
     };
   }
 
-  private emitSnapshot(snapshot: WorkspaceSnapshot): void {
+  private emitSnapshot(rawSnapshot: WorkspaceSnapshot | RawWorkspaceSnapshotInput): void {
+    const sanitized = sanitizeWorkspaceSnapshot(rawSnapshot);
+    domainEventBus.emit('workspace:sanitized', {
+      workspaceId: sanitized.workspace.id,
+      workspaceCode: sanitized.workspace.code,
+      schemaVersion: sanitized.schemaVersion ?? CURRENT_SCHEMA_VERSION,
+    });
+
     const normalized: WorkspaceSnapshot = {
-      workspace: snapshot.workspace,
-      members: [...snapshot.members].sort((a, b) => a.createdAt.localeCompare(b.createdAt)),
-      stacks: sortByPosition(snapshot.stacks),
-      items: sortByPosition(snapshot.items),
-      activities: [...snapshot.activities]
+      schemaVersion: sanitized.schemaVersion ?? CURRENT_SCHEMA_VERSION,
+      workspace: sanitized.workspace,
+      members: [...sanitized.members].sort((a, b) => a.createdAt.localeCompare(b.createdAt)),
+      stacks: sortByPosition(sanitized.stacks),
+      items: sortByPosition(sanitized.items),
+      activities: [...sanitized.activities]
         .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
         .slice(0, 60),
     };
+
+    const prevSnapshot = this.currentSnapshot;
+    if (this.activeMember) {
+      const newNotices = detectNewAssignmentNotices(
+        prevSnapshot,
+        normalized,
+        this.activeMember.id,
+      );
+      if (newNotices.length > 0) {
+        domainEventBus.emit('notices:detected', {
+          workspaceId: normalized.workspace.id,
+          targetMemberId: this.activeMember.id,
+          notices: newNotices,
+        });
+        notificationService.dispatchNotices(newNotices);
+      }
+    }
+
     this.currentSnapshot = normalized;
+    domainEventBus.emit('snapshot:updated', {
+      prev: prevSnapshot,
+      next: normalized,
+      activeMemberId: this.activeMember?.id ?? null,
+    });
+
     for (const listener of this.snapshotListeners) {
       listener(normalized);
     }
@@ -353,7 +450,7 @@ export class StackFlowSyncService {
       const snapshot = await this.fetchFullSupabaseSnapshot(ws.id);
       this.emitSnapshot(snapshot);
       this.setupRealtimeSubscriptions(ws.id);
-      return snapshot;
+      return this.currentSnapshot ?? snapshot;
     }
 
     // Zero-Config E2EE Cloud Relay + Local Instant Mode
@@ -363,22 +460,26 @@ export class StackFlowSyncService {
       if (existing.workspace.pinCode !== pin) {
         throw new Error('Mã PIN không chính xác!');
       }
-      this.emitSnapshot(existing);
-      this.setupLocalBroadcastSubscriptions(existing.workspace.code);
-      void this.attachE2eeRelaySession(existing.workspace.code, pin, existing);
-      return existing;
+      const sanitizedExisting = sanitizeWorkspaceSnapshot(existing);
+      db.workspaces[code] = sanitizedExisting;
+      writeLocalDb(db);
+      this.emitSnapshot(sanitizedExisting);
+      this.setupLocalBroadcastSubscriptions(sanitizedExisting.workspace.code);
+      void this.attachE2eeRelaySession(sanitizedExisting.workspace.code, pin, sanitizedExisting);
+      return this.currentSnapshot ?? sanitizedExisting;
     }
 
     // Room not cached locally yet -> Try discovering encrypted room from E2EE Cloud Relay!
     if (import.meta.env.MODE !== 'test') {
       const remoteSnap = await this.discoverRemoteWorkspaceViaRelay(code, pin);
       if (remoteSnap) {
+        const sanitizedRemote = sanitizeWorkspaceSnapshot(remoteSnap);
         const freshDb = readLocalDb();
-        freshDb.workspaces[code] = remoteSnap;
+        freshDb.workspaces[code] = sanitizedRemote;
         writeLocalDb(freshDb);
-        this.emitSnapshot(remoteSnap);
+        this.emitSnapshot(sanitizedRemote);
         this.setupLocalBroadcastSubscriptions(code, true);
-        return remoteSnap;
+        return this.currentSnapshot ?? sanitizedRemote;
       }
     }
 
@@ -483,6 +584,7 @@ export class StackFlowSyncService {
               priority: 'high',
               completed: false,
               assigneeId: creator.id,
+              assigneeIds: [creator.id],
               dueDate: null,
               position: 0,
               subtasks: [],
@@ -497,7 +599,8 @@ export class StackFlowSyncService {
           ]
         : [];
 
-    const initialSnapshot: WorkspaceSnapshot = {
+    const initialSnapshot = sanitizeWorkspaceSnapshot({
+      schemaVersion: CURRENT_SCHEMA_VERSION,
       workspace: {
         id: wsId,
         code,
@@ -505,6 +608,7 @@ export class StackFlowSyncService {
         description: 'Checklist dự án nhóm theo Stack',
         pinCode,
         maxMembers: MAX_TEAM_MEMBERS,
+        schemaVersion: CURRENT_SCHEMA_VERSION,
         createdAt: now,
         updatedAt: now,
       },
@@ -524,7 +628,7 @@ export class StackFlowSyncService {
           createdAt: now,
         },
       ],
-    };
+    });
 
     const supabase = getSupabaseClient();
     if (supabase) {
@@ -532,7 +636,7 @@ export class StackFlowSyncService {
       const fresh = await this.fetchFullSupabaseSnapshot(wsId);
       this.emitSnapshot(fresh);
       this.setupRealtimeSubscriptions(wsId);
-      return { snapshot: fresh, creator };
+      return { snapshot: this.currentSnapshot ?? fresh, creator };
     }
 
     const db = readLocalDb();
@@ -544,7 +648,7 @@ export class StackFlowSyncService {
     this.emitSnapshot(initialSnapshot);
     this.setupLocalBroadcastSubscriptions(code);
     void this.attachE2eeRelaySession(code, pinCode, initialSnapshot, true);
-    return { snapshot: initialSnapshot, creator };
+    return { snapshot: this.currentSnapshot ?? initialSnapshot, creator };
   }
 
   public async uploadSnapshotToSupabase(snapshot: WorkspaceSnapshot, overwriteExisting = true): Promise<void> {
@@ -553,7 +657,8 @@ export class StackFlowSyncService {
       throw new Error('Chưa cấu hình URL và Anon Key của Supabase.');
     }
 
-    const ws = snapshot.workspace;
+    const cleanSnapshot = sanitizeWorkspaceSnapshot(snapshot);
+    const ws = cleanSnapshot.workspace;
     if (!overwriteExisting) {
       const { data: existing } = await supabase
         .from('workspaces')
@@ -580,9 +685,9 @@ export class StackFlowSyncService {
     );
     if (wsErr) throw new Error(`Không thể lưu Workspace lên Supabase: ${wsErr.message}`);
 
-    if (snapshot.members.length > 0) {
+    if (cleanSnapshot.members.length > 0) {
       const { error: memErr } = await supabase.from('members').upsert(
-        snapshot.members.slice(0, MAX_TEAM_MEMBERS).map((m) => ({
+        cleanSnapshot.members.slice(0, MAX_TEAM_MEMBERS).map((m) => ({
           id: m.id,
           workspace_id: ws.id,
           name: m.name,
@@ -596,9 +701,9 @@ export class StackFlowSyncService {
       if (memErr) throw new Error(`Không thể đồng bộ Thành viên: ${memErr.message}`);
     }
 
-    if (snapshot.stacks.length > 0) {
+    if (cleanSnapshot.stacks.length > 0) {
       const { error: stErr } = await supabase.from('stacks').upsert(
-        snapshot.stacks.map((s) => ({
+        cleanSnapshot.stacks.map((s) => ({
           id: s.id,
           workspace_id: ws.id,
           title: s.title,
@@ -615,32 +720,50 @@ export class StackFlowSyncService {
       if (stErr) throw new Error(`Không thể đồng bộ Stacks: ${stErr.message}`);
     }
 
-    if (snapshot.items.length > 0) {
-      const { error: itemErr } = await supabase.from('checklist_items').upsert(
-        snapshot.items.map((item) => ({
-          id: item.id,
-          workspace_id: ws.id,
-          stack_id: item.stackId,
-          title: item.title,
-          notes: item.notes,
-          status: item.status,
-          priority: item.priority,
-          completed: item.completed,
-          assignee_id: item.assigneeId,
-          due_date: item.dueDate,
-          position: item.position,
-          subtasks: item.subtasks,
-          links: item.links,
-          completed_by_id: item.completedById,
-          completed_by_name: item.completedByName,
-          completed_at: item.completedAt,
-          updated_by_name: item.updatedByName,
-          created_at: item.createdAt,
-          updated_at: item.updatedAt,
-        })),
-        { onConflict: 'id' },
-      );
-      if (itemErr) throw new Error(`Không thể đồng bộ Checklist Items: ${itemErr.message}`);
+    if (cleanSnapshot.items.length > 0) {
+      const baseRows = cleanSnapshot.items.map((item) => ({
+        id: item.id,
+        workspace_id: ws.id,
+        stack_id: item.stackId,
+        title: item.title,
+        notes: item.notes,
+        status: item.status,
+        priority: item.priority,
+        completed: item.completed,
+        assignee_id: item.assigneeId,
+        due_date: item.dueDate,
+        position: item.position,
+        subtasks: item.subtasks,
+        links: item.links,
+        completed_by_id: item.completedById,
+        completed_by_name: item.completedByName,
+        completed_at: item.completedAt,
+        updated_by_name: item.updatedByName,
+        created_at: item.createdAt,
+        updated_at: item.updatedAt,
+      }));
+
+      const rowsWithAssigneeIds = baseRows.map((row, idx) => ({
+        ...row,
+        assignee_ids: cleanSnapshot.items[idx].assigneeIds,
+      }));
+
+      const { error: itemErr } = await supabase
+        .from('checklist_items')
+        .upsert(rowsWithAssigneeIds, { onConflict: 'id' });
+
+      if (itemErr) {
+        if (isMissingAssigneeIdsColumnError(itemErr.message)) {
+          const { error: fallbackErr } = await supabase
+            .from('checklist_items')
+            .upsert(baseRows, { onConflict: 'id' });
+          if (fallbackErr) {
+            throw new Error(`Không thể đồng bộ Checklist Items: ${fallbackErr.message}`);
+          }
+        } else {
+          throw new Error(`Không thể đồng bộ Checklist Items: ${itemErr.message}`);
+        }
+      }
     }
   }
 
@@ -667,13 +790,14 @@ export class StackFlowSyncService {
       throw new Error(wsRes.error?.message ?? 'Không tải được dữ liệu dự án.');
     }
 
-    return {
+    return sanitizeWorkspaceSnapshot({
+      schemaVersion: CURRENT_SCHEMA_VERSION,
       workspace: mapWorkspaceFromDb(wsRes.data as DbWorkspaceRow),
       members: ((memRes.data ?? []) as DbMemberRow[]).map(mapMemberFromDb),
       stacks: ((stackRes.data ?? []) as DbStackRow[]).map(mapStackFromDb),
       items: ((itemRes.data ?? []) as DbItemRow[]).map(mapItemFromDb),
       activities: ((actRes.data ?? []) as DbActivityRow[]).map(mapActivityFromDb),
-    };
+    });
   }
 
   // --------------------------------------------------------------------------
@@ -774,13 +898,16 @@ export class StackFlowSyncService {
   private createRelayInstance(workspaceCode: string): E2eeCloudRelaySession {
     return new E2eeCloudRelaySession(this.sessionTabId, {
       onRemoteSnapshot: (incoming) => {
-        if (!incoming || normalizeRoomCode(incoming.workspace.code) !== workspaceCode) return;
+        if (!incoming?.workspace || normalizeRoomCode(incoming.workspace.code) !== workspaceCode) {
+          return;
+        }
+        const sanitizedIncoming = sanitizeWorkspaceSnapshot(incoming as RawWorkspaceSnapshotInput);
         const db = readLocalDb();
         const local = db.workspaces[workspaceCode];
-        if (!local || incoming.workspace.updatedAt >= local.workspace.updatedAt) {
-          db.workspaces[workspaceCode] = incoming;
+        if (!local || sanitizedIncoming.workspace.updatedAt >= local.workspace.updatedAt) {
+          db.workspaces[workspaceCode] = sanitizedIncoming;
           writeLocalDb(db);
-          this.emitSnapshot(incoming);
+          this.emitSnapshot(sanitizedIncoming);
           this.broadcastBus?.postMessage({
             type: 'SNAPSHOT_UPDATED',
             workspaceCode,
@@ -819,7 +946,7 @@ export class StackFlowSyncService {
       return null;
     }
     this.notifySyncMode();
-    return snap;
+    return sanitizeWorkspaceSnapshot(snap as RawWorkspaceSnapshotInput);
   }
 
   private async attachE2eeRelaySession(
@@ -833,18 +960,22 @@ export class StackFlowSyncService {
       this.relaySession.disconnect();
       this.relaySession = null;
     }
+    const sanitizedLocal = sanitizeWorkspaceSnapshot(localSnapshot);
     const relay = this.createRelayInstance(workspaceCode);
     this.relaySession = relay;
     const remoteSnap = await relay.connectAndFetchInitial(workspaceCode, pinCode, 1100);
     if (forcePublishInitial || !remoteSnap) {
-      await relay.publishSnapshot(this.currentSnapshot ?? localSnapshot);
-    } else if (remoteSnap.workspace.updatedAt > localSnapshot.workspace.updatedAt) {
-      const db = readLocalDb();
-      db.workspaces[workspaceCode] = remoteSnap;
-      writeLocalDb(db);
-      this.emitSnapshot(remoteSnap);
-    } else if (localSnapshot.workspace.updatedAt > remoteSnap.workspace.updatedAt) {
-      await relay.publishSnapshot(this.currentSnapshot ?? localSnapshot);
+      await relay.publishSnapshot(this.currentSnapshot ?? sanitizedLocal);
+    } else {
+      const sanitizedRemote = sanitizeWorkspaceSnapshot(remoteSnap as RawWorkspaceSnapshotInput);
+      if (sanitizedRemote.workspace.updatedAt > sanitizedLocal.workspace.updatedAt) {
+        const db = readLocalDb();
+        db.workspaces[workspaceCode] = sanitizedRemote;
+        writeLocalDb(db);
+        this.emitSnapshot(sanitizedRemote);
+      } else if (sanitizedLocal.workspace.updatedAt > sanitizedRemote.workspace.updatedAt) {
+        await relay.publishSnapshot(this.currentSnapshot ?? sanitizedLocal);
+      }
     }
     this.notifySyncMode();
     this.broadcastLocalPresence();
@@ -940,17 +1071,18 @@ export class StackFlowSyncService {
     const code = this.currentSnapshot.workspace.code;
     const db = readLocalDb();
     const base = db.workspaces[code] ?? this.currentSnapshot;
-    const next = mutator(structuredClone(base));
-    next.workspace.updatedAt = new Date().toISOString();
-    db.workspaces[code] = next;
+    const mutated = mutator(structuredClone(base));
+    mutated.workspace.updatedAt = new Date().toISOString();
+    const sanitizedNext = sanitizeWorkspaceSnapshot(mutated);
+    db.workspaces[code] = sanitizedNext;
     writeLocalDb(db);
-    this.emitSnapshot(next);
+    this.emitSnapshot(sanitizedNext);
     this.broadcastBus?.postMessage({
       type: 'SNAPSHOT_UPDATED',
       workspaceCode: code,
     });
-    void this.relaySession?.publishSnapshot(next);
-    return next;
+    void this.relaySession?.publishSnapshot(sanitizedNext);
+    return this.currentSnapshot ?? sanitizedNext;
   }
 
   public teardownConnections(): void {
@@ -1058,9 +1190,18 @@ export class StackFlowSyncService {
 
     this.commitLocalMutation((snap) => {
       snap.members = snap.members.filter((m) => m.id !== memberId);
-      snap.items = snap.items.map((it) =>
-        it.assigneeId === memberId ? { ...it, assigneeId: null } : it,
-      );
+      snap.items = snap.items.map((it) => {
+        const nextAssigneeIds = it.assigneeIds.filter((id) => id !== memberId);
+        const nextSubtasks = it.subtasks.map((sub) =>
+          sub.assigneeId === memberId ? { ...sub, assigneeId: null } : sub,
+        );
+        return {
+          ...it,
+          assigneeIds: nextAssigneeIds,
+          assigneeId: nextAssigneeIds[0] ?? null,
+          subtasks: nextSubtasks,
+        };
+      });
       return snap;
     });
   }
@@ -1219,23 +1360,28 @@ export class StackFlowSyncService {
   }
 
   // --------------------------------------------------------------------------
-  // Checklist Item Operations
+  // Checklist Item Operations (Schema v2 Multi-Assignee + Per-Subtask Assignee)
   // --------------------------------------------------------------------------
 
-  public async addItem(input: {
-    stackId: string;
-    title: string;
-    assigneeId?: string | null;
-    priority?: TaskPriority;
-    dueDate?: string | null;
-    actor: Member;
-  }): Promise<ChecklistItem> {
+  public async addItem(input: AddChecklistItemInput): Promise<ChecklistItem> {
     if (!this.currentSnapshot) throw new Error('Chưa mở dự án.');
     const title = input.title.trim();
     if (!title) throw new Error('Vui lòng nhập nội dung đầu việc.');
 
     const now = new Date().toISOString();
-    const { workspace, items, stacks } = this.currentSnapshot;
+    const { workspace, items, stacks, members } = this.currentSnapshot;
+    const validMemberIds = new Set<string>(members.map((m) => m.id));
+    const normalizedAssigneeIds = normalizeAssigneeIds(
+      input.assigneeIds,
+      input.assigneeId ?? null,
+      validMemberIds,
+    );
+    const normalizedSubtasks = Array.isArray(input.subtasks)
+      ? input.subtasks
+          .map((sub, idx) => sanitizeSubtaskItem(sub, idx, validMemberIds))
+          .filter((sub) => sub.title.length > 0)
+      : [];
+
     const stackItems = items.filter((it) => it.stackId === input.stackId);
     const nextPos = stackItems.length > 0 ? Math.max(...stackItems.map((i) => i.position)) + 1 : 0;
     const stackName = stacks.find((s) => s.id === input.stackId)?.title ?? 'Stack';
@@ -1249,10 +1395,11 @@ export class StackFlowSyncService {
       status: 'todo',
       priority: input.priority ?? 'medium',
       completed: false,
-      assigneeId: input.assigneeId ?? null,
+      assigneeId: normalizedAssigneeIds[0] ?? null,
+      assigneeIds: normalizedAssigneeIds,
       dueDate: input.dueDate ?? null,
       position: nextPos,
-      subtasks: [],
+      subtasks: normalizedSubtasks,
       links: [],
       completedById: null,
       completedByName: null,
@@ -1264,7 +1411,7 @@ export class StackFlowSyncService {
 
     const supabase = getSupabaseClient();
     if (supabase) {
-      const { error } = await supabase.from('checklist_items').insert({
+      const baseInsertPayload = {
         id: newItem.id,
         workspace_id: newItem.workspaceId,
         stack_id: newItem.stackId,
@@ -1281,15 +1428,31 @@ export class StackFlowSyncService {
         updated_by_name: newItem.updatedByName,
         created_at: newItem.createdAt,
         updated_at: newItem.updatedAt,
+      };
+
+      const { error } = await supabase.from('checklist_items').insert({
+        ...baseInsertPayload,
+        assignee_ids: newItem.assigneeIds,
       });
-      if (error) throw new Error(error.message);
+
+      if (error) {
+        if (isMissingAssigneeIdsColumnError(error.message)) {
+          const { error: fallbackErr } = await supabase
+            .from('checklist_items')
+            .insert(baseInsertPayload);
+          if (fallbackErr) throw new Error(fallbackErr.message);
+        } else {
+          throw new Error(error.message);
+        }
+      }
+
       await this.logActivity(input.actor, 'create_task', newItem.title, `Thêm vào ${stackName}`);
       const snap = await this.fetchFullSupabaseSnapshot(workspace.id);
       this.emitSnapshot(snap);
-      return newItem;
+      return this.currentSnapshot?.items.find((i) => i.id === newItem.id) ?? newItem;
     }
 
-    this.commitLocalMutation((snap) => {
+    const updatedSnap = this.commitLocalMutation((snap) => {
       snap.items.push(newItem);
       snap.activities.unshift({
         id: generateId(),
@@ -1305,7 +1468,7 @@ export class StackFlowSyncService {
       return snap;
     });
 
-    return newItem;
+    return updatedSnap.items.find((i) => i.id === newItem.id) ?? newItem;
   }
 
   public async toggleItem(itemId: string, actor: Member): Promise<void> {
@@ -1379,26 +1542,44 @@ export class StackFlowSyncService {
 
   public async updateItem(
     itemId: string,
-    patch: Partial<
-      Pick<
-        ChecklistItem,
-        'title' | 'notes' | 'status' | 'priority' | 'assigneeId' | 'dueDate' | 'subtasks' | 'links' | 'stackId'
-      >
-    >,
+    patch: ChecklistItemPatch,
     actor: Member,
   ): Promise<void> {
     if (!this.currentSnapshot) return;
     const current = this.currentSnapshot.items.find((i) => i.id === itemId);
     if (!current) return;
 
+    const validMemberIds = new Set<string>(this.currentSnapshot.members.map((m) => m.id));
     const now = new Date().toISOString();
     const resolvedCompleted =
       patch.status !== undefined ? patch.status === 'done' : current.completed;
     const resolvedStatus: TaskStatus =
       patch.status !== undefined ? patch.status : resolvedCompleted ? 'done' : current.status;
 
+    let resolvedAssigneeIds: string[] | undefined;
+    let resolvedAssigneeId: string | null | undefined;
+    if (patch.assigneeIds !== undefined) {
+      resolvedAssigneeIds = normalizeAssigneeIds(patch.assigneeIds, null, validMemberIds);
+      resolvedAssigneeId = resolvedAssigneeIds[0] ?? null;
+    } else if (patch.assigneeId !== undefined) {
+      resolvedAssigneeIds = normalizeAssigneeIds(undefined, patch.assigneeId, validMemberIds);
+      resolvedAssigneeId = resolvedAssigneeIds[0] ?? null;
+    }
+
+    const resolvedSubtasks =
+      patch.subtasks !== undefined
+        ? patch.subtasks
+            .map((sub, idx) => sanitizeSubtaskItem(sub, idx, validMemberIds))
+            .filter((sub) => sub.title.length > 0)
+        : undefined;
+
     const fullPatch: Partial<ChecklistItem> = {
       ...patch,
+      ...(patch.title !== undefined ? { title: patch.title.trim() } : {}),
+      ...(resolvedAssigneeIds !== undefined
+        ? { assigneeIds: resolvedAssigneeIds, assigneeId: resolvedAssigneeId ?? null }
+        : {}),
+      ...(resolvedSubtasks !== undefined ? { subtasks: resolvedSubtasks } : {}),
       status: resolvedStatus,
       completed: resolvedCompleted,
       completedById: resolvedCompleted ? current.completedById ?? actor.id : null,
@@ -1419,17 +1600,32 @@ export class StackFlowSyncService {
         updated_by_name: fullPatch.updatedByName,
         updated_at: fullPatch.updatedAt,
       };
-      if (patch.title !== undefined) dbPatch.title = patch.title.trim();
+      if (fullPatch.title !== undefined) dbPatch.title = fullPatch.title;
       if (patch.notes !== undefined) dbPatch.notes = patch.notes;
       if (patch.priority !== undefined) dbPatch.priority = patch.priority;
-      if (patch.assigneeId !== undefined) dbPatch.assignee_id = patch.assigneeId;
+      if (resolvedAssigneeIds !== undefined) {
+        dbPatch.assignee_id = resolvedAssigneeId ?? null;
+        dbPatch.assignee_ids = resolvedAssigneeIds;
+      }
       if (patch.dueDate !== undefined) dbPatch.due_date = patch.dueDate;
-      if (patch.subtasks !== undefined) dbPatch.subtasks = patch.subtasks;
+      if (resolvedSubtasks !== undefined) dbPatch.subtasks = resolvedSubtasks;
       if (patch.links !== undefined) dbPatch.links = patch.links;
       if (patch.stackId !== undefined) dbPatch.stack_id = patch.stackId;
 
       const { error } = await supabase.from('checklist_items').update(dbPatch).eq('id', itemId);
-      if (error) throw new Error(error.message);
+      if (error) {
+        if (isMissingAssigneeIdsColumnError(error.message) && 'assignee_ids' in dbPatch) {
+          const fallbackDbPatch = { ...dbPatch };
+          delete fallbackDbPatch.assignee_ids;
+          const { error: fallbackErr } = await supabase
+            .from('checklist_items')
+            .update(fallbackDbPatch)
+            .eq('id', itemId);
+          if (fallbackErr) throw new Error(fallbackErr.message);
+        } else {
+          throw new Error(error.message);
+        }
+      }
 
       if (patch.status && patch.status !== current.status) {
         await this.logActivity(
