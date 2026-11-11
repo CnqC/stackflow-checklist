@@ -1,5 +1,5 @@
 -- =============================================================================
--- StackFlow Checklist — Supabase PostgreSQL + Realtime Schema
+-- StackFlow Checklist — Supabase PostgreSQL + Realtime Schema (Schema v2)
 -- Tối ưu cho nhóm dự án < 10 thành viên (Mã PIN dự án + Chọn tên thành viên)
 -- Cách dùng: Mở Supabase Dashboard -> SQL Editor -> Dán toàn bộ file này -> Run
 -- =============================================================================
@@ -74,7 +74,7 @@ create table if not exists public.stacks (
   updated_at timestamptz not null default now()
 );
 
--- 4. Bảng Checklist Items (Các đầu việc trong từng Stack, kèm subtasks & links JSONB)
+-- 4. Bảng Checklist Items (Các đầu việc trong từng Stack, hỗ trợ Multi-Assignee & Subtasks JSONB)
 create table if not exists public.checklist_items (
   id uuid primary key default gen_random_uuid(),
   workspace_id uuid not null references public.workspaces(id) on delete cascade,
@@ -85,6 +85,7 @@ create table if not exists public.checklist_items (
   priority text not null default 'medium' check (priority in ('low', 'medium', 'high')),
   completed boolean not null default false,
   assignee_id uuid references public.members(id) on delete set null,
+  assignee_ids uuid[] not null default '{}',
   due_date text,
   position int not null default 0,
   subtasks jsonb not null default '[]'::jsonb,
@@ -96,6 +97,15 @@ create table if not exists public.checklist_items (
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
+
+-- Nâng cấp an toàn Schema v1 -> v2 cho bảng checklist_items hiện hữu
+alter table public.checklist_items
+  add column if not exists assignee_ids uuid[] not null default '{}';
+
+update public.checklist_items
+set assignee_ids = array[assignee_id]
+where assignee_id is not null
+  and coalesce(array_length(assignee_ids, 1), 0) = 0;
 
 -- 5. Bảng Activity Logs (Nhật ký hoạt động trực tiếp của cả nhóm)
 create table if not exists public.activity_logs (
@@ -115,6 +125,7 @@ create index if not exists idx_workspaces_code on public.workspaces(code);
 create index if not exists idx_members_workspace on public.members(workspace_id);
 create index if not exists idx_stacks_workspace_pos on public.stacks(workspace_id, position);
 create index if not exists idx_items_workspace_stack_pos on public.checklist_items(workspace_id, stack_id, position);
+create index if not exists idx_items_assignee_ids on public.checklist_items using gin (assignee_ids);
 create index if not exists idx_activity_workspace_created on public.activity_logs(workspace_id, created_at desc);
 
 -- Bật Row Level Security (cho phép truy cập qua anon key với kiểm tra mã PIN ở ứng dụng)

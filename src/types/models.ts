@@ -1,8 +1,10 @@
 export const MAX_TEAM_MEMBERS = 10;
+export const CURRENT_SCHEMA_VERSION = 2;
 
 export type TaskStatus = 'todo' | 'doing' | 'blocked' | 'done';
 export type TaskPriority = 'low' | 'medium' | 'high';
 export type SyncMode = 'supabase' | 'relay' | 'local';
+export type AppNoticeKind = 'task_assigned' | 'subtask_assigned';
 
 export interface Workspace {
   id: string;
@@ -11,6 +13,7 @@ export interface Workspace {
   description: string;
   pinCode: string;
   maxMembers: number;
+  schemaVersion?: number;
   createdAt: string;
   updatedAt: string;
 }
@@ -29,6 +32,8 @@ export interface SubtaskItem {
   id: string;
   title: string;
   completed: boolean;
+  assigneeId?: string | null;
+  completedByName?: string | null;
 }
 
 export interface TaskLink {
@@ -60,6 +65,7 @@ export interface ChecklistItem {
   priority: TaskPriority;
   completed: boolean;
   assigneeId: string | null;
+  assigneeIds: string[];
   dueDate: string | null;
   position: number;
   subtasks: SubtaskItem[];
@@ -72,13 +78,35 @@ export interface ChecklistItem {
   updatedAt: string;
 }
 
+export interface AppNotice {
+  id: string;
+  workspaceId: string;
+  workspaceCode: string;
+  targetMemberId: string;
+  actorName: string;
+  kind: AppNoticeKind;
+  taskId: string;
+  taskTitle: string;
+  subtaskTitle?: string;
+  createdAt: string;
+  read: boolean;
+}
+
 export interface ActivityLog {
   id: string;
   workspaceId: string;
   actorId: string | null;
   actorName: string;
   actorColor: string;
-  actionType: 'check' | 'uncheck' | 'create_task' | 'update_task' | 'delete_task' | 'create_stack' | 'join_member' | 'status_change';
+  actionType:
+    | 'check'
+    | 'uncheck'
+    | 'create_task'
+    | 'update_task'
+    | 'delete_task'
+    | 'create_stack'
+    | 'join_member'
+    | 'status_change';
   targetTitle: string;
   detail: string;
   createdAt: string;
@@ -94,6 +122,7 @@ export interface PresencePeer {
 }
 
 export interface WorkspaceSnapshot {
+  schemaVersion?: number;
   workspace: Workspace;
   members: Member[];
   stacks: StackGroup[];
