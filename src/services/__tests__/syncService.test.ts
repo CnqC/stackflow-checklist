@@ -7,6 +7,11 @@ import {
   normalizeRoomCode,
 } from '../../domain/stackDomain';
 import { MAX_TEAM_MEMBERS } from '../../types/models';
+import {
+  decryptPayload,
+  deriveRoomTopicAndKey,
+  encryptPayload,
+} from '../e2eeRelaySync';
 import { StackFlowSyncService } from '../syncService';
 
 describe('StackFlow Domain & Realtime Sync Service', () => {
@@ -102,5 +107,27 @@ describe('StackFlow Domain & Realtime Sync Service', () => {
     });
 
     svc.teardownConnections();
+  });
+
+  it('encrypts and decrypts workspace snapshots with PIN-derived AES-256-GCM and blocks wrong PIN', async () => {
+    const right = await deriveRoomTopicAndKey('TEAM-STACK', '1234');
+    const wrong = await deriveRoomTopicAndKey('TEAM-STACK', '9999');
+
+    expect(right.topicBase).not.toBe(wrong.topicBase);
+
+    const encrypted = await encryptPayload(right.aesKey, 'tab-A', {
+      hello: 'StackFlow',
+      count: 9,
+    });
+
+    const okResult = await decryptPayload<{ hello: string; count: number }>(
+      right.aesKey,
+      encrypted,
+    );
+    expect(okResult?.senderId).toBe('tab-A');
+    expect(okResult?.data).toEqual({ hello: 'StackFlow', count: 9 });
+
+    const badResult = await decryptPayload(wrong.aesKey, encrypted);
+    expect(badResult).toBeNull();
   });
 });

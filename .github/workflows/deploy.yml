@@ -1,0 +1,109 @@
+name: Deploy Web PWA & Build Android APK
+
+on:
+  push:
+    branches:
+      - master
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+
+concurrency:
+  group: "pages-and-apk"
+  cancel-in-progress: true
+
+jobs:
+  deploy-web:
+    name: Build & Deploy Web + PWA (GitHub Pages)
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run Unit Tests
+        run: npm test
+
+      - name: Build Production Bundle
+        run: npm run build
+
+      - name: Setup GitHub Pages
+        uses: actions/configure-pages@v5
+
+      - name: Upload Pages Artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: './dist'
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
+
+  build-android-apk:
+    name: Build Native Android APK & Publish Release
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+
+      - name: Setup Java 21 (Temurin)
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '21'
+          cache: 'gradle'
+
+      - name: Install dependencies & Sync Capacitor Android
+        run: |
+          npm ci
+          npm run build
+          npx cap sync android
+
+      - name: Build Android APK via Gradle
+        working-directory: android
+        run: |
+          chmod +x gradlew
+          ./gradlew assembleDebug
+
+      - name: Prepare StackFlow-Checklist.apk
+        run: |
+          cp android/app/build/outputs/apk/debug/app-debug.apk StackFlow-Checklist.apk
+
+      - name: Upload APK Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: StackFlow-Checklist-APK
+          path: StackFlow-Checklist.apk
+
+      - name: Publish / Update Latest GitHub Release with APK
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          if gh release view v1.0.0 >/dev/null 2>&1; then
+            gh release upload v1.0.0 StackFlow-Checklist.apk --clobber
+          else
+            gh release create v1.0.0 StackFlow-Checklist.apk \
+              --title "StackFlow Checklist v1.0.0 (Web PWA & Android APK)" \
+              --notes "Bản cài đặt Android gốc (.apk) đồng bộ thời gian thực cùng Web & PWA cho nhóm dự án <10 thành viên."
+          fi

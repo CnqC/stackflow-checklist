@@ -2,7 +2,7 @@ export const MAX_TEAM_MEMBERS = 10;
 
 export type TaskStatus = 'todo' | 'doing' | 'blocked' | 'done';
 export type TaskPriority = 'low' | 'medium' | 'high';
-export type SyncMode = 'supabase' | 'local';
+export type SyncMode = 'supabase' | 'relay' | 'local';
 
 export interface Workspace {
   id: string;

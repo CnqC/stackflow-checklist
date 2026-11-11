@@ -89,7 +89,7 @@ export function App() {
     return () => clearTimeout(t);
   }, [toast]);
 
-  // Subscribe to realtime snapshot & presence updates
+  // Subscribe to realtime snapshot, presence & sync mode updates
   useEffect(() => {
     const unsubSnap = syncService.subscribeSnapshot((next) => {
       setSnapshot(next);
@@ -97,9 +97,13 @@ export function App() {
     const unsubPresence = syncService.subscribePresence((peers) => {
       setOnlinePeers(peers);
     });
+    const unsubMode = syncService.subscribeSyncMode((mode) => {
+      setSyncMode(mode);
+    });
     return () => {
       unsubSnap();
       unsubPresence();
+      unsubMode();
     };
   }, []);
 
@@ -501,10 +505,14 @@ export function App() {
             <span className="inline-flex items-center gap-2 text-slate-200 font-medium">
               <Cloud
                 className={`w-4 h-4 ${
-                  syncMode === 'supabase' ? 'text-emerald-400' : 'text-amber-400'
+                  syncMode !== 'local' ? 'text-emerald-400' : 'text-amber-400'
                 }`}
               />
-              {syncMode === 'supabase' ? 'Cloud Realtime: Bật' : 'Đồng bộ Local / Cloud'}
+              {syncMode === 'supabase'
+                ? 'Supabase Cloud: Bật'
+                : syncMode === 'relay'
+                  ? 'Internet E2EE: Trực tuyến'
+                  : 'Đồng bộ Local / Cloud'}
             </span>
             <span className="text-[11px] text-indigo-400">Cấu hình</span>
           </button>

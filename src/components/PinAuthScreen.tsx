@@ -155,8 +155,14 @@ export const PinAuthScreen: React.FC<PinAuthScreenProps> = ({
           onClick={onOpenCloudConfig}
           className="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs font-medium border transition cursor-pointer bg-slate-900/90 hover:bg-slate-800 border-slate-700/80 text-slate-200"
         >
-          <Cloud className={`w-3.5 h-3.5 ${syncMode === 'supabase' ? 'text-emerald-400' : 'text-amber-400'}`} />
-          <span>{syncMode === 'supabase' ? 'Supabase Cloud: Đã bật' : 'Đồng bộ: Local / Cấu hình Cloud'}</span>
+          <Cloud className={`w-3.5 h-3.5 ${syncMode !== 'local' ? 'text-emerald-400' : 'text-amber-400'}`} />
+          <span>
+            {syncMode === 'supabase'
+              ? 'Supabase Cloud: Đã bật'
+              : syncMode === 'relay'
+                ? 'Internet E2EE: Trực tuyến'
+                : 'Đồng bộ Internet E2EE: Sẵn sàng'}
+          </span>
         </button>
       </header>
 
@@ -257,7 +263,7 @@ export const PinAuthScreen: React.FC<PinAuthScreenProps> = ({
                     <ArrowRight className="w-4 h-4" />
                   </button>
 
-                  {syncMode === 'local' && (
+                  {syncMode !== 'supabase' && (
                     <button
                       type="button"
                       onClick={handleQuickDemo}

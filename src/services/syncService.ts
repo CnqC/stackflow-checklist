@@ -25,6 +25,7 @@ import {
   type Workspace,
   type WorkspaceSnapshot,
 } from '../types/models';
+import { E2eeCloudRelaySession } from './e2eeRelaySync';
 import { getSupabaseClient } from './supabaseConfig';
 
 const LOCAL_DB_KEY = 'stackflow_local_workspaces_v1';
@@ -36,6 +37,7 @@ interface LocalDbStore {
 
 type SnapshotListener = (snapshot: WorkspaceSnapshot) => void;
 type PresenceListener = (peers: PresencePeer[]) => void;
+type SyncModeListener = (mode: SyncMode) => void;
 
 // ============================================================================
 // Row Mappers for Supabase (snake_case <-> camelCase)
@@ -230,8 +232,10 @@ export class StackFlowSyncService {
   private currentSnapshot: WorkspaceSnapshot | null = null;
   private snapshotListeners = new Set<SnapshotListener>();
   private presenceListeners = new Set<PresenceListener>();
+  private syncModeListeners = new Set<SyncModeListener>();
 
   private realtimeChannel: RealtimeChannel | null = null;
+  private relaySession: E2eeCloudRelaySession | null = null;
   private broadcastBus: BroadcastChannel | null = null;
   private localPresenceMap = new Map<string, PresencePeer>();
   private localPresenceTimer: ReturnType<typeof setInterval> | null = null;
@@ -239,7 +243,24 @@ export class StackFlowSyncService {
   private sessionTabId = generateId();
 
   public getSyncMode(): SyncMode {
-    return getSupabaseClient() ? 'supabase' : 'local';
+    if (getSupabaseClient()) return 'supabase';
+    if (this.relaySession?.isConnected()) return 'relay';
+    return 'local';
+  }
+
+  public subscribeSyncMode(listener: SyncModeListener): () => void {
+    this.syncModeListeners.add(listener);
+    listener(this.getSyncMode());
+    return () => {
+      this.syncModeListeners.delete(listener);
+    };
+  }
+
+  private notifySyncMode(): void {
+    const mode = this.getSyncMode();
+    for (const l of this.syncModeListeners) {
+      l(mode);
+    }
   }
 
   public getSnapshot(): WorkspaceSnapshot | null {
@@ -335,19 +356,35 @@ export class StackFlowSyncService {
       return snapshot;
     }
 
-    // Local Instant Mode
+    // Zero-Config E2EE Cloud Relay + Local Instant Mode
     const db = readLocalDb();
     const existing = db.workspaces[code];
-    if (!existing) {
-      throw new Error(`Không tìm thấy dự án "${code}". Hãy thử mã mẫu TEAM-STACK (PIN: 1234) hoặc tạo dự án mới!`);
-    }
-    if (existing.workspace.pinCode !== pin) {
-      throw new Error('Mã PIN không chính xác!');
+    if (existing) {
+      if (existing.workspace.pinCode !== pin) {
+        throw new Error('Mã PIN không chính xác!');
+      }
+      this.emitSnapshot(existing);
+      this.setupLocalBroadcastSubscriptions(existing.workspace.code);
+      void this.attachE2eeRelaySession(existing.workspace.code, pin, existing);
+      return existing;
     }
 
-    this.emitSnapshot(existing);
-    this.setupLocalBroadcastSubscriptions(existing.workspace.code);
-    return existing;
+    // Room not cached locally yet -> Try discovering encrypted room from E2EE Cloud Relay!
+    if (import.meta.env.MODE !== 'test') {
+      const remoteSnap = await this.discoverRemoteWorkspaceViaRelay(code, pin);
+      if (remoteSnap) {
+        const freshDb = readLocalDb();
+        freshDb.workspaces[code] = remoteSnap;
+        writeLocalDb(freshDb);
+        this.emitSnapshot(remoteSnap);
+        this.setupLocalBroadcastSubscriptions(code, true);
+        return remoteSnap;
+      }
+    }
+
+    throw new Error(
+      `Không tìm thấy dự án "${code}" hoặc sai Mã PIN. Hãy kiểm tra lại Mã dự án & PIN hoặc bấm sang tab "Tạo dự án mới"!`,
+    );
   }
 
   public async createWorkspace(input: {
@@ -506,6 +543,7 @@ export class StackFlowSyncService {
     writeLocalDb(db);
     this.emitSnapshot(initialSnapshot);
     this.setupLocalBroadcastSubscriptions(code);
+    void this.attachE2eeRelaySession(code, pinCode, initialSnapshot, true);
     return { snapshot: initialSnapshot, creator };
   }
 
@@ -733,8 +771,95 @@ export class StackFlowSyncService {
     this.realtimeChannel = channel;
   }
 
-  private setupLocalBroadcastSubscriptions(workspaceCode: string): void {
+  private createRelayInstance(workspaceCode: string): E2eeCloudRelaySession {
+    return new E2eeCloudRelaySession(this.sessionTabId, {
+      onRemoteSnapshot: (incoming) => {
+        if (!incoming || normalizeRoomCode(incoming.workspace.code) !== workspaceCode) return;
+        const db = readLocalDb();
+        const local = db.workspaces[workspaceCode];
+        if (!local || incoming.workspace.updatedAt >= local.workspace.updatedAt) {
+          db.workspaces[workspaceCode] = incoming;
+          writeLocalDb(db);
+          this.emitSnapshot(incoming);
+          this.broadcastBus?.postMessage({
+            type: 'SNAPSHOT_UPDATED',
+            workspaceCode,
+          });
+        }
+      },
+      onRemotePresence: (clientId, peer) => {
+        if (!peer) {
+          this.localPresenceMap.delete(`relay:${clientId}`);
+        } else {
+          this.localPresenceMap.set(`relay:${clientId}`, peer);
+        }
+        this.pruneAndEmitLocalPresence();
+      },
+      onConnectionChange: () => {
+        this.notifySyncMode();
+        if (this.relaySession?.isConnected()) {
+          this.broadcastLocalPresence();
+        }
+      },
+    });
+  }
+
+  private async discoverRemoteWorkspaceViaRelay(
+    workspaceCode: string,
+    pinCode: string,
+  ): Promise<WorkspaceSnapshot | null> {
     this.teardownConnections();
+    const relay = this.createRelayInstance(workspaceCode);
+    this.relaySession = relay;
+    const snap = await relay.connectAndFetchInitial(workspaceCode, pinCode, 1500);
+    if (!snap) {
+      relay.disconnect();
+      this.relaySession = null;
+      this.notifySyncMode();
+      return null;
+    }
+    this.notifySyncMode();
+    return snap;
+  }
+
+  private async attachE2eeRelaySession(
+    workspaceCode: string,
+    pinCode: string,
+    localSnapshot: WorkspaceSnapshot,
+    forcePublishInitial = false,
+  ): Promise<void> {
+    if (import.meta.env.MODE === 'test') return;
+    if (this.relaySession) {
+      this.relaySession.disconnect();
+      this.relaySession = null;
+    }
+    const relay = this.createRelayInstance(workspaceCode);
+    this.relaySession = relay;
+    const remoteSnap = await relay.connectAndFetchInitial(workspaceCode, pinCode, 1100);
+    if (forcePublishInitial || !remoteSnap) {
+      await relay.publishSnapshot(this.currentSnapshot ?? localSnapshot);
+    } else if (remoteSnap.workspace.updatedAt > localSnapshot.workspace.updatedAt) {
+      const db = readLocalDb();
+      db.workspaces[workspaceCode] = remoteSnap;
+      writeLocalDb(db);
+      this.emitSnapshot(remoteSnap);
+    } else if (localSnapshot.workspace.updatedAt > remoteSnap.workspace.updatedAt) {
+      await relay.publishSnapshot(this.currentSnapshot ?? localSnapshot);
+    }
+    this.notifySyncMode();
+    this.broadcastLocalPresence();
+  }
+
+  private setupLocalBroadcastSubscriptions(workspaceCode: string, keepExistingRelay = false): void {
+    const preservedRelay = keepExistingRelay ? this.relaySession : null;
+    if (keepExistingRelay) {
+      this.relaySession = null;
+    }
+    this.teardownConnections();
+    if (preservedRelay) {
+      this.relaySession = preservedRelay;
+      this.notifySyncMode();
+    }
     if (typeof BroadcastChannel === 'undefined') return;
 
     const bus = new BroadcastChannel(BROADCAST_CHANNEL_NAME);
@@ -773,7 +898,7 @@ export class StackFlowSyncService {
     this.localPresenceTimer = setInterval(() => {
       this.broadcastLocalPresence();
       this.pruneAndEmitLocalPresence();
-    }, 4000);
+    }, 4500);
   }
 
   private broadcastLocalPresence(): void {
@@ -795,10 +920,11 @@ export class StackFlowSyncService {
       tabId: this.sessionTabId,
       peer,
     });
+    void this.relaySession?.publishPresence(peer);
   }
 
   private pruneAndEmitLocalPresence(): void {
-    const cutoff = Date.now() - 12000;
+    const cutoff = Date.now() - 14000;
     for (const [tabId, peer] of this.localPresenceMap.entries()) {
       if (new Date(peer.lastSeenAt).getTime() < cutoff) {
         this.localPresenceMap.delete(tabId);
@@ -815,6 +941,7 @@ export class StackFlowSyncService {
     const db = readLocalDb();
     const base = db.workspaces[code] ?? this.currentSnapshot;
     const next = mutator(structuredClone(base));
+    next.workspace.updatedAt = new Date().toISOString();
     db.workspaces[code] = next;
     writeLocalDb(db);
     this.emitSnapshot(next);
@@ -822,6 +949,7 @@ export class StackFlowSyncService {
       type: 'SNAPSHOT_UPDATED',
       workspaceCode: code,
     });
+    void this.relaySession?.publishSnapshot(next);
     return next;
   }
 
@@ -833,6 +961,10 @@ export class StackFlowSyncService {
       }
       this.realtimeChannel = null;
     }
+    if (this.relaySession) {
+      this.relaySession.disconnect();
+      this.relaySession = null;
+    }
     if (this.broadcastBus) {
       this.broadcastBus.close();
       this.broadcastBus = null;
@@ -842,6 +974,7 @@ export class StackFlowSyncService {
       this.localPresenceTimer = null;
     }
     this.localPresenceMap.clear();
+    this.notifySyncMode();
   }
 
   // --------------------------------------------------------------------------

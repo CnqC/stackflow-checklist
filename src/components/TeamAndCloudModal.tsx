@@ -83,9 +83,14 @@ export const TeamAndCloudModal: React.FC<TeamAndCloudModalProps> = ({
 
   const handleCopyInvite = async () => {
     if (!snapshot) return;
-    const base = window.location.origin + window.location.pathname;
+    const isNativeOrLocal =
+      window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+    const base = isNativeOrLocal
+      ? 'https://cnqc.github.io/stackflow-checklist/'
+      : window.location.origin + window.location.pathname;
     const url = `${base}?room=${encodeURIComponent(snapshot.workspace.code)}&pin=${encodeURIComponent(snapshot.workspace.pinCode)}`;
-    const inviteText = `Checklist dự án "${snapshot.workspace.name}"\n• Link Web/App: ${url}\n• Mã dự án: ${snapshot.workspace.code}\n• Mã PIN: ${snapshot.workspace.pinCode}`;
+    const apkUrl = 'https://github.com/CnqC/stackflow-checklist/releases/latest/download/StackFlow-Checklist.apk';
+    const inviteText = `Checklist dự án "${snapshot.workspace.name}"\n• Link Web/iPhone: ${url}\n• Tải App Android (.apk): ${apkUrl}\n• Mã dự án: ${snapshot.workspace.code}\n• Mã PIN: ${snapshot.workspace.pinCode}`;
     await navigator.clipboard.writeText(inviteText);
     setCopiedInvite(true);
     setTimeout(() => setCopiedInvite(false), 2500);
@@ -468,13 +473,21 @@ export const TeamAndCloudModal: React.FC<TeamAndCloudModalProps> = ({
                 </div>
               )}
 
-              <div className="rounded-xl bg-slate-950 border border-slate-800 p-4 space-y-2">
+              <div className="rounded-xl bg-slate-950 border border-slate-800 p-4 space-y-3">
                 <div className="font-semibold text-white">1. Bản Android APK gốc (Capacitor)</div>
                 <p className="text-slate-400">
-                  Dự án đã tích hợp sẵn Capacitor Android. Bạn có thể gửi trực tiếp file{' '}
-                  <code className="text-indigo-300">StackFlow-Checklist.apk</code> qua Zalo/Telegram/Drive cho
-                  các bạn dùng Android cài đặt trong 5 giây.
+                  Tải trực tiếp file <code className="text-indigo-300">StackFlow-Checklist.apk</code> để cài lên
+                  điện thoại Android hoặc gửi qua Zalo/Telegram cho cả nhóm:
                 </p>
+                <a
+                  href="https://github.com/CnqC/stackflow-checklist/releases/latest/download/StackFlow-Checklist.apk"
+                  target="_blank"
+                  rel="noreferrer"
+                  className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-semibold text-xs transition"
+                >
+                  <Download className="w-4 h-4" />
+                  Tải xuống StackFlow-Checklist.apk (Android)
+                </a>
               </div>
 
               <div className="rounded-xl bg-slate-950 border border-slate-800 p-4 space-y-2">
