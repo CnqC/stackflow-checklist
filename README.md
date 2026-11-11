@@ -13,10 +13,13 @@
 - **Tổ chức công việc theo Stack (`Stack Follow`)**:
   - Chia dự án thành các tầng `Stack 1 -> Stack 2 -> Stack 3...` kèm thanh phần trăm tiến độ trực quan.
   - Hỗ trợ bật **Chế độ Tuần tự (`Tuần tự`)** cho từng Stack: khóa các bước phía sau cho tới khi hoàn thành xong bước nền phía trước.
-- **Đầu việc chi tiết & Ghi nhận rõ ai làm**:
+- **Đầu việc chi tiết & Chia việc nhóm cực dễ (Thân thiện Non-Tech)**:
   - Tick hoàn thành 1 chạm với Optimistic UI (0ms độ trễ), tự động ghi nhận `✓ [Tên thành viên] đã hoàn thành`.
-  - Gắn người phụ trách (`Assignee`), trạng thái (`Cần làm`, `Đang làm`, `Đang kẹt`, `Hoàn thành`), mức ưu tiên, hạn chót (`Deadline`), **Checklist con (`Subtasks`)**, ghi chú và **Link đính kèm** (GitHub, Figma, Notion, Drive...).
-  - Bộ lọc nhanh **`Việc của tôi`**, tìm kiếm tức thì và **Nhật ký hoạt động trực tiếp**.
+  - **Nhiều người cùng làm 1 đầu việc (`Người cùng làm`)**: Bấm chạm trực tiếp vào các thẻ tên thành viên để chọn nhiều bạn cùng phụ trách chung 1 đầu việc lớn.
+  - **Chia phần việc nhỏ ngay trong mục (`Chia phần việc nhỏ trong mục này`)**: Tách một việc lớn thành nhiều bước nhỏ và gắn tên từng bạn phụ trách riêng cho từng bước ngay bên trong đầu việc đó.
+  - **Chuông báo việc mới trên Điện thoại & Trình duyệt (`🔔 Bật báo chuông khi có việc mới`)**: Chỉ cần bấm biểu tượng **Quả chuông (`🔔`)** trên thanh công cụ và bật chuông 1 lần — mỗi khi có bạn trong nhóm giao việc mới hoặc giao phần việc nhỏ cho bạn, điện thoại/máy tính sẽ báo tinh tinh ngay lập tức. Bấm vào thông báo sẽ mở thẳng đúng đầu việc đó.
+  - Đổi trạng thái (`Cần làm`, `Đang làm`, `Đang kẹt`, `Hoàn thành`), mức ưu tiên, hạn chót (`Deadline`), ghi chú và **Link đính kèm** (GitHub, Figma, Notion, Drive...).
+  - Bộ lọc nhanh **`Việc của tôi`** (tự động gom cả việc chính lẫn phần việc nhỏ bạn được giao), tìm kiếm tức thì và **Nhật ký hoạt động trực tiếp**.
 - **Kiến trúc Đồng bộ Kép (`Dual-Engine Realtime Sync`)**:
   - **Supabase Cloud Mode**: Đồng bộ qua Internet dưới 100ms bằng PostgreSQL + Supabase Realtime (`postgres_changes` & `presence`).
   - **Local Instant Mode**: Chạy ngay lập tức không cần cấu hình, đồng bộ thời gian thực giữa nhiều tab/cửa sổ trình duyệt qua `BroadcastChannel` và cho phép **1-click đẩy toàn bộ dự án lên Supabase Cloud** bất cứ lúc nào.
