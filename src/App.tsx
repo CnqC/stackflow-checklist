@@ -16,6 +16,7 @@ import {
   X,
 } from 'lucide-react';
 import { ActivityPanel } from './components/ActivityPanel';
+import { NotificationBell } from './components/NotificationBell';
 import { PinAuthScreen } from './components/PinAuthScreen';
 import { StackGroupCard } from './components/StackGroupCard';
 import { TaskDetailDrawer } from './components/TaskDetailDrawer';
@@ -23,7 +24,11 @@ import {
   TeamAndCloudModal,
   type BeforeInstallPromptEvent,
 } from './components/TeamAndCloudModal';
-import { calculateProgress, STACK_PALETTE } from './domain/stackDomain';
+import {
+  calculateProgress,
+  isMemberInvolvedInItem,
+  STACK_PALETTE,
+} from './domain/stackDomain';
 import { syncService } from './services/syncService';
 import {
   MAX_TEAM_MEMBERS,
@@ -242,10 +247,14 @@ export function App() {
   const effectiveFilter: TaskFilter = mobileTab === 'mine' ? 'mine' : filter;
 
   const filterItem = (item: ChecklistItem): boolean => {
-    if (assigneeFilterId && item.assigneeId !== assigneeFilterId) {
+    if (assigneeFilterId && !isMemberInvolvedInItem(item, assigneeFilterId)) {
       return false;
     }
-    if (effectiveFilter === 'mine' && currentMember && item.assigneeId !== currentMember.id) {
+    if (
+      effectiveFilter === 'mine' &&
+      currentMember &&
+      !isMemberInvolvedInItem(item, currentMember.id)
+    ) {
       return false;
     }
     if (effectiveFilter === 'incomplete' && item.completed) return false;
@@ -299,8 +308,20 @@ export function App() {
   }
 
   const myRemainingCount = snapshot.items.filter(
-    (i) => i.assigneeId === currentMember.id && !i.completed,
+    (i) => isMemberInvolvedInItem(i, currentMember.id) && !i.completed,
   ).length;
+
+  const handleOpenTaskFromNotice = (taskId: string) => {
+    const exists = snapshot.items.some((i) => i.id === taskId);
+    if (!exists) {
+      showToast('Đầu việc này đã được xóa hoặc không còn tồn tại.');
+      return;
+    }
+    if (mobileTab === 'activity') {
+      setMobileTab('board');
+    }
+    setSelectedItemId(taskId);
+  };
 
   return (
     <div className="min-h-dvh bg-[#090d16] text-slate-100 flex flex-col lg:flex-row safe-top">
@@ -451,7 +472,7 @@ export function App() {
                 const isOnline = onlinePeers.some((p) => p.memberId === m.id);
                 const isSelected = assigneeFilterId === m.id;
                 const countLeft = snapshot.items.filter(
-                  (i) => i.assigneeId === m.id && !i.completed,
+                  (i) => isMemberInvolvedInItem(i, m.id) && !i.completed,
                 ).length;
 
                 return (
@@ -565,6 +586,13 @@ export function App() {
           </div>
 
           <div className="flex items-center gap-1.5 shrink-0">
+            <NotificationBell
+              workspaceId={snapshot.workspace.id}
+              memberId={currentMember.id}
+              memberName={currentMember.name}
+              onOpenTask={handleOpenTaskFromNotice}
+              compact
+            />
             <button
               type="button"
               onClick={() => setShowAddStack(true)}
@@ -629,6 +657,12 @@ export function App() {
               </div>
 
               <div className="hidden lg:flex items-center gap-2">
+                <NotificationBell
+                  workspaceId={snapshot.workspace.id}
+                  memberId={currentMember.id}
+                  memberName={currentMember.name}
+                  onOpenTask={handleOpenTaskFromNotice}
+                />
                 <button
                   type="button"
                   onClick={() => {
@@ -807,11 +841,12 @@ export function App() {
                       currentMember={currentMember}
                       onToggleItem={(it) => void syncService.toggleItem(it.id, currentMember)}
                       onSelectItem={(it) => setSelectedItemId(it.id)}
-                      onQuickAddItem={async (stackId, title, assigneeId) => {
+                      onQuickAddItem={async (stackId, title, assigneeId, assigneeIds) => {
                         await syncService.addItem({
                           stackId,
                           title,
                           assigneeId,
+                          assigneeIds: assigneeIds ?? (assigneeId ? [assigneeId] : []),
                           actor: currentMember,
                         });
                       }}
@@ -899,6 +934,7 @@ export function App() {
         item={selectedItem}
         stacks={snapshot.stacks}
         members={snapshot.members}
+        currentMember={currentMember}
         onClose={() => setSelectedItemId(null)}
         onSaveItem={(itemId, patch) => syncService.updateItem(itemId, patch, currentMember)}
         onDeleteItem={(itemId) => syncService.deleteItem(itemId, currentMember)}

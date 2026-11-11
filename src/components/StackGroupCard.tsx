@@ -27,7 +27,12 @@ interface StackGroupCardProps {
   currentMember: Member;
   onToggleItem: (item: ChecklistItem) => void;
   onSelectItem: (item: ChecklistItem) => void;
-  onQuickAddItem: (stackId: string, title: string, assigneeId: string | null) => Promise<void>;
+  onQuickAddItem: (
+    stackId: string,
+    title: string,
+    assigneeId: string | null,
+    assigneeIds?: string[],
+  ) => Promise<void>;
   onUpdateStack: (
     stackId: string,
     patch: Partial<Pick<StackGroup, 'title' | 'description' | 'sequentialLock' | 'collapsed'>>,
@@ -65,7 +70,13 @@ export const StackGroupCard: React.FC<StackGroupCardProps> = ({
     if (!newTitle.trim() || adding) return;
     setAdding(true);
     try {
-      await onQuickAddItem(stack.id, newTitle.trim(), newAssigneeId || null);
+      const nextAssigneeIds = newAssigneeId ? [newAssigneeId] : [];
+      await onQuickAddItem(
+        stack.id,
+        newTitle.trim(),
+        newAssigneeId || null,
+        nextAssigneeIds,
+      );
       setNewTitle('');
     } finally {
       setAdding(false);
@@ -206,7 +217,23 @@ export const StackGroupCard: React.FC<StackGroupCardProps> = ({
                 const orderIdx = allStackItems.findIndex((x) => x.id === item.id);
                 const seqCheck = isItemLockedBySequence(stack, item, allStackItems);
                 const isSeqLocked = seqCheck.locked && !item.completed;
-                const assignee = item.assigneeId ? memberMap.get(item.assigneeId) : undefined;
+
+                const rawAssigneeIds =
+                  Array.isArray(item.assigneeIds) && item.assigneeIds.length > 0
+                    ? item.assigneeIds
+                    : item.assigneeId
+                      ? [item.assigneeId]
+                      : [];
+                const assignees = rawAssigneeIds
+                  .map((id) => memberMap.get(id))
+                  .filter((m): m is Member => Boolean(m));
+                const visibleAvatars = assignees.slice(0, 3);
+                const extraAssigneeCount = Math.max(0, assignees.length - visibleAvatars.length);
+                const isCurrentMemberAssigned = assignees.some((a) => a.id === currentMember.id);
+                const hasMySubtask = item.subtasks.some(
+                  (s) => s.assigneeId === currentMember.id && !s.completed,
+                );
+
                 const doneSubtasks = item.subtasks.filter((s) => s.completed).length;
 
                 return (
@@ -300,9 +327,16 @@ export const StackGroupCard: React.FC<StackGroupCardProps> = ({
 
                         {/* Subtask count */}
                         {item.subtasks.length > 0 && (
-                          <span className="inline-flex items-center gap-1 text-[11px] text-slate-400 bg-slate-800/80 px-2 py-0.5 rounded-md">
+                          <span
+                            className={`inline-flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-md ${
+                              hasMySubtask
+                                ? 'bg-indigo-500/20 text-indigo-200 border border-indigo-500/30 font-medium'
+                                : 'text-slate-400 bg-slate-800/80'
+                            }`}
+                          >
                             <ListChecks className="w-3 h-3 text-indigo-400" />
                             {doneSubtasks}/{item.subtasks.length}
+                            {hasMySubtask && <span className="hidden sm:inline">• Có phần của bạn</span>}
                           </span>
                         )}
 
@@ -331,29 +365,61 @@ export const StackGroupCard: React.FC<StackGroupCardProps> = ({
                       </div>
                     </div>
 
-                    {/* Assignee Pill */}
+                    {/* Assignee Pill / Overlapping Avatar Group */}
                     <button
                       type="button"
                       onClick={() => onSelectItem(item)}
                       className="shrink-0 flex items-center gap-1.5 px-2 py-1 rounded-lg bg-slate-950/70 border border-slate-800 hover:border-slate-700 transition cursor-pointer"
-                      title={assignee ? `Phụ trách: ${assignee.name}` : 'Bấm để giao người phụ trách'}
+                      title={
+                        assignees.length > 0
+                          ? `Người cùng làm: ${assignees.map((a) => a.name).join(', ')}`
+                          : 'Bấm để chọn người cùng làm'
+                      }
                     >
-                      {assignee ? (
+                      {assignees.length === 1 ? (
                         <>
                           <span
                             className="w-5 h-5 rounded-md text-[10px] font-bold text-white flex items-center justify-center"
-                            style={{ backgroundColor: assignee.color }}
+                            style={{ backgroundColor: assignees[0].color }}
                           >
-                            {assignee.avatar}
+                            {assignees[0].avatar}
                           </span>
                           <span
                             className={`text-xs hidden sm:inline ${
-                              assignee.id === currentMember.id
+                              isCurrentMemberAssigned
                                 ? 'text-indigo-300 font-semibold'
                                 : 'text-slate-300'
                             }`}
                           >
-                            {assignee.name}
+                            {assignees[0].name}
+                          </span>
+                        </>
+                      ) : assignees.length > 1 ? (
+                        <>
+                          <div className="flex items-center -space-x-1.5">
+                            {visibleAvatars.map((member) => (
+                              <span
+                                key={member.id}
+                                className="w-5 h-5 rounded-full text-[9px] font-bold text-white flex items-center justify-center ring-2 ring-slate-950"
+                                style={{ backgroundColor: member.color }}
+                              >
+                                {member.avatar}
+                              </span>
+                            ))}
+                            {extraAssigneeCount > 0 && (
+                              <span className="w-5 h-5 rounded-full bg-slate-800 text-[9px] font-bold text-slate-200 flex items-center justify-center ring-2 ring-slate-950">
+                                +{extraAssigneeCount}
+                              </span>
+                            )}
+                          </div>
+                          <span
+                            className={`text-xs hidden sm:inline ${
+                              isCurrentMemberAssigned
+                                ? 'text-indigo-300 font-semibold'
+                                : 'text-slate-300'
+                            }`}
+                          >
+                            {assignees[0].name.split(' ').pop()} +{assignees.length - 1}
                           </span>
                         </>
                       ) : (
