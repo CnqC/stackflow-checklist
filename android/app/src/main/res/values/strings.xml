@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">StackFlow</string>
+    <string name="title_activity_main">StackFlow</string>
+    <string name="package_name">com.quang.stackflow</string>
+    <string name="custom_url_scheme">com.quang.stackflow</string>
+</resources>
