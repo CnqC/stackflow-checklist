@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" fill="none">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="512" y2="512" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#1e1b4b"/>
+      <stop offset="50%" stop-color="#312e81"/>
+      <stop offset="100%" stop-color="#0f172a"/>
+    </linearGradient>
+    <linearGradient id="accent" x1="96" y1="96" x2="416" y2="416" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#818cf8"/>
+      <stop offset="100%" stop-color="#38bdf8"/>
+    </linearGradient>
+  </defs>
+  <rect width="512" height="512" rx="120" fill="url(#bg)"/>
+  <rect x="24" y="24" width="464" height="464" rx="98" stroke="#6366f1" stroke-opacity="0.35" stroke-width="8"/>
+  <!-- Stack layer 1 -->
+  <rect x="108" y="120" width="296" height="72" rx="20" fill="#1e293b" stroke="url(#accent)" stroke-width="8"/>
+  <path d="M142 156l16 16 32-32" stroke="#34d399" stroke-width="12" stroke-linecap="round" stroke-linejoin="round"/>
+  <rect x="214" y="146" width="150" height="20" rx="10" fill="#e2e8f0"/>
+  <!-- Stack layer 2 -->
+  <rect x="108" y="220" width="296" height="72" rx="20" fill="#1e293b" stroke="url(#accent)" stroke-width="8"/>
+  <path d="M142 256l16 16 32-32" stroke="#34d399" stroke-width="12" stroke-linecap="round" stroke-linejoin="round"/>
+  <rect x="214" y="246" width="124" height="20" rx="10" fill="#cbd5e1"/>
+  <!-- Stack layer 3 -->
+  <rect x="108" y="320" width="296" height="72" rx="20" fill="#1e293b" stroke="#64748b" stroke-width="8"/>
+  <circle cx="164" cy="356" r="18" stroke="#38bdf8" stroke-width="10"/>
+  <rect x="214" y="346" width="160" height="20" rx="10" fill="#94a3b8"/>
+</svg>
