@@ -130,4 +130,34 @@ describe('StackFlow Domain & Realtime Sync Service', () => {
     const badResult = await decryptPayload(wrong.aesKey, encrypted);
     expect(badResult).toBeNull();
   });
+
+  it('keeps legacy single assigneeId and v2 multi-assignee assigneeIds in 2-way sync', async () => {
+    const svc = new StackFlowSyncService();
+    const { creator: quang } = await svc.createWorkspace({
+      code: 'COMPAT-V2',
+      name: 'Backwards Compat Check',
+      pinCode: '5678',
+      creatorName: 'Quang',
+    });
+    const minh = await svc.addMember('Minh', 'Dev');
+    const stackId = svc.getSnapshot()!.stacks[0]!.id;
+
+    // Legacy caller passing only `assigneeId`
+    const legacyCreated = await svc.addItem({
+      stackId,
+      title: 'Legacy Single Assignee Call',
+      assigneeId: minh.id,
+      actor: quang,
+    });
+    expect(legacyCreated.assigneeId).toBe(minh.id);
+    expect(legacyCreated.assigneeIds).toEqual([minh.id]);
+
+    // v2 caller updating with multiple `assigneeIds`
+    await svc.updateItem(legacyCreated.id, { assigneeIds: [quang.id, minh.id] }, quang);
+    const updated = svc.getSnapshot()!.items.find((i) => i.id === legacyCreated.id)!;
+    expect(updated.assigneeIds).toEqual([quang.id, minh.id]);
+    expect(updated.assigneeId).toBe(quang.id);
+
+    svc.teardownConnections();
+  });
 });
