@@ -85,11 +85,15 @@ export function detectNewAssignmentNotices(
     }
 
     const actorName = nextItem.updatedByName?.trim() || 'Đồng đội';
-    const createdAt =
+    const rawCreatedAt =
       nextItem.updatedAt ||
       nextItem.createdAt ||
       next.workspace.updatedAt ||
       '1970-01-01T00:00:00.000Z';
+    const parsedCreatedAt = Date.parse(rawCreatedAt);
+    const createdAt = Number.isNaN(parsedCreatedAt)
+      ? rawCreatedAt
+      : new Date(parsedCreatedAt).toISOString();
 
     const prevItem = prevItemMap.get(nextItem.id);
     const prevAssignees = prevItem ? resolveEffectiveAssignees(prevItem) : [];

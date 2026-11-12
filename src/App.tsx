@@ -31,6 +31,7 @@ import {
 } from './domain/stackDomain';
 import { watchBrowserTabNotices } from './infrastructure/notifications/browserTabTitle';
 import { notificationService } from './infrastructure/notifications/notificationService';
+import { pushRegistrationService } from './infrastructure/notifications/pushRegistrationService';
 import { syncService } from './services/syncService';
 import {
   MAX_TEAM_MEMBERS,
@@ -77,9 +78,18 @@ export function App() {
   const [toast, setToast] = useState<string | null>(null);
   const [deferredInstallPrompt, setDeferredInstallPrompt] =
     useState<BeforeInstallPromptEvent | null>(null);
-  const [pendingNoticeId, setPendingNoticeId] = useState<string | null>(() =>
-    typeof window === 'undefined' ? null : new URLSearchParams(window.location.search).get('notice'),
-  );
+  const [pendingNotice, setPendingNotice] = useState<{
+    noticeId: string; taskId?: string; workspaceId?: string;
+  } | null>(() => {
+    if (typeof window === 'undefined') return null;
+    const params = new URLSearchParams(window.location.search);
+    const noticeId = params.get('notice');
+    return noticeId ? {
+      noticeId,
+      taskId: params.get('task') ?? undefined,
+      workspaceId: params.get('workspace') ?? undefined,
+    } : null;
+  });
 
   // Parse URL invite params if present
   const urlParams = useMemo(() => {
@@ -160,31 +170,42 @@ export function App() {
     return watchBrowserTabNotices(snapshot, currentMember?.id ?? null);
   }, [snapshot, currentMember?.id]);
 
-  useEffect(() => notificationService.subscribeNoticeOpens(setPendingNoticeId), []);
+  useEffect(() => notificationService.subscribeNoticeOpens((noticeId, target) => {
+    setPendingNotice({ noticeId, ...target });
+  }), []);
 
   useEffect(() => {
-    if (!pendingNoticeId || !snapshot || !currentMember) return;
+    if (!snapshot || !currentMember) return;
+    void pushRegistrationService.sync(snapshot, currentMember.id, syncMode);
+  }, [snapshot, currentMember, syncMode]);
+
+  useEffect(() => {
+    if (!pendingNotice || !snapshot || !currentMember) return;
+    if (pendingNotice.workspaceId && pendingNotice.workspaceId !== snapshot.workspace.id) return;
     let cancelled = false;
     queueMicrotask(() => {
       if (cancelled) return;
       const notice = notificationService.getNotices(snapshot.workspace.id, currentMember.id)
-        .find((entry) => entry.id === pendingNoticeId);
+        .find((entry) => entry.id === pendingNotice.noticeId);
       if (notice) {
         notificationService.markNoticeRead(notice.id, snapshot.workspace.id, currentMember.id);
-        if (snapshot.items.some((item) => item.id === notice.taskId)) {
-          setMobileTab('board');
-          setSelectedItemId(notice.taskId);
-        }
       }
-      setPendingNoticeId(null);
+      const taskId = notice?.taskId ?? pendingNotice.taskId;
+      if (taskId && snapshot.items.some((item) => item.id === taskId)) {
+        setMobileTab('board');
+        setSelectedItemId(taskId);
+      }
+      setPendingNotice(null);
       const url = new URL(window.location.href);
-      if (url.searchParams.get('notice') === pendingNoticeId) {
+      if (url.searchParams.get('notice') === pendingNotice.noticeId) {
         url.searchParams.delete('notice');
+        url.searchParams.delete('task');
+        url.searchParams.delete('workspace');
         window.history.replaceState(window.history.state, '', url);
       }
     });
     return () => { cancelled = true; };
-  }, [pendingNoticeId, snapshot, currentMember]);
+  }, [pendingNotice, snapshot, currentMember]);
 
   const persistSession = (roomCode: string, pinCode: string, memberId?: string) => {
     const payload: SavedSession = { roomCode, pinCode, memberId };
@@ -224,6 +245,7 @@ export function App() {
   };
 
   const handleLogout = () => {
+    void pushRegistrationService.disable();
     syncService.teardownConnections();
     syncService.setActiveMember(null);
     window.localStorage.removeItem(SESSION_STORAGE_KEY);
@@ -617,6 +639,7 @@ export function App() {
           <div className="flex items-center gap-1.5 shrink-0">
             <NotificationBell
               snapshot={snapshot}
+              syncMode={syncMode}
               memberId={currentMember.id}
               memberName={currentMember.name}
               onOpenTask={handleOpenTaskFromNotice}
@@ -688,6 +711,7 @@ export function App() {
               <div className="hidden lg:flex items-center gap-2">
                 <NotificationBell
                   snapshot={snapshot}
+                  syncMode={syncMode}
                   memberId={currentMember.id}
                   memberName={currentMember.name}
                   onOpenTask={handleOpenTaskFromNotice}

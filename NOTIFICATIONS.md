@@ -9,11 +9,15 @@
 - Tab Web hiển thị số chưa đọc ổn định cùng tên Stack mới nhất, ví dụ `(3) StackFlow — Stack 2`.
 - Một checkpoint nhỏ theo từng thành viên giúp đối chiếu việc được giao khi mở lại app trên cùng thiết bị. Các notice phát hiện lúc mở lại được thêm vào hộp chuông mà không phát một loạt thông báo hệ thống cũ.
 
-## Giới hạn và bước mở rộng
+## Push khi đóng ứng dụng
 
-Thông báo tức thì khi app/trình duyệt đã đóng hẳn cần một dịch vụ đẩy phía máy chủ. Android có thể nhận qua Firebase Cloud Messaging; Web cần Push API với service worker và nơi lưu đăng ký của thiết bị. StackFlow hiện dùng MQTT relay hoặc Supabase cho dữ liệu đang mở, chưa có dịch vụ gửi push và thông tin cấu hình Firebase/Web Push. Checkpoint chỉ đối chiếu trạng thái cuối khi mở lại trên cùng thiết bị, nên không thể tái dựng một lần giao việc rồi gỡ ra trong lúc app đóng. Trạng thái đã đọc hiện chưa đồng bộ giữa nhiều thiết bị.
+Trong chế độ Supabase, `supabase/push.sql` ghi sự kiện giao việc tại database. Database Webhook gửi sự kiện tới Edge Function `push-send`; function gửi FCM cho Android và Web Push cho trình duyệt. `push-device` đăng ký thiết bị sau khi người dùng cho quyền. Cùng `notice.id` được dùng cho hộp chuông, push và điều hướng để không báo hai lần. Xem [PUSH_SETUP.md](./PUSH_SETUP.md) để cấu hình dịch vụ và khóa.
 
-Nếu thêm push sau này, máy chủ cần phát cùng `notice.id` để dùng chung kho chống trùng hiện có. Quyền thông báo và lựa chọn tắt báo trên thiết bị vẫn do người dùng kiểm soát.
+## Giới hạn
+
+Push khi đóng ứng dụng chỉ hoạt động sau khi Supabase, Firebase và Web Push được cấu hình và deploy theo `PUSH_SETUP.md`. Chế độ local/MQTT relay chưa có máy chủ xử lý sự kiện push khi mọi app đã đóng. Checkpoint chỉ đối chiếu trạng thái cuối khi mở lại trên cùng thiết bị, nên không thể tái dựng một lần giao việc rồi gỡ ra trong lúc app đóng. Trạng thái đã đọc hiện chưa đồng bộ giữa nhiều thiết bị. Android có thể bị hệ điều hành trì hoãn hoặc chặn nếu app bị force stop hoặc người dùng tắt quyền/thông báo kênh. Web phụ thuộc trình duyệt, quyền thông báo và cài đặt âm thanh Windows.
+
+Mô hình đăng nhập hiện tại dùng PIN chung của phòng và chọn tên thành viên. Edge Function xác nhận PIN trước khi đăng ký thiết bị và giữ token ngoài quyền truy cập anon, nhưng chưa thể phân biệt chắc chắn hai người cùng biết PIN nếu một người chọn tên người khác. Muốn bảo mật danh tính cá nhân cần tài khoản hoặc mã riêng cho từng thành viên.
 
 ## Tài liệu tham khảo chính thức
 

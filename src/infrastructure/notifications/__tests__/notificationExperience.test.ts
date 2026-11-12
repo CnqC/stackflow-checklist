@@ -29,6 +29,14 @@ describe('Notification experience', () => {
     const notices = detectNewAssignmentNotices(checkpoint, after, minh.id);
     expect(notices).toHaveLength(1);
     expect(notices[0]).toMatchObject({ taskId: target.id, targetMemberId: minh.id });
+    expect(notices[0]!.id.endsWith('2026-11-12T10:00:00.000Z')).toBe(true);
+
+    const dbTimestamp = {
+      ...after,
+      items: after.items.map((item) => item.id === target.id
+        ? { ...item, updatedAt: '2026-11-12T10:00:00+00:00' } : item),
+    };
+    expect(detectNewAssignmentNotices(checkpoint, dbTimestamp, minh.id)[0]!.id).toBe(notices[0]!.id);
 
     restartedSession.saveAssignmentCheckpoint(after, minh.id);
     expect(detectNewAssignmentNotices(

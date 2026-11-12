@@ -10,7 +10,17 @@ import type { AppNotice, WorkspaceSnapshot } from '../../types/models';
 
 export type NotificationPermissionState = 'granted' | 'denied' | 'default' | 'unsupported';
 export type NoticeListener = (notices: AppNotice[]) => void;
-export type NoticeOpenListener = (noticeId: string) => void;
+export type NoticeOpenTarget = { taskId?: string; workspaceId?: string };
+export type NoticeOpenListener = (noticeId: string, target?: NoticeOpenTarget) => void;
+export type RemotePushData = NoticeOpenTarget & {
+  noticeId?: string;
+  targetMemberId?: string;
+  kind?: string;
+  actorName?: string;
+  taskTitle?: string;
+  subtaskTitle?: string;
+  createdAt?: string;
+};
 
 const NOTICE_STORE_KEY = 'stackflow_inapp_notices_v2';
 const NATIVE_PERMISSION_CACHE_KEY = 'stackflow_native_notif_perm_v1';
@@ -74,6 +84,7 @@ function mapCapacitorPermission(display: string | undefined): 'granted' | 'denie
 export class NotificationService {
   private listeners = new Set<NoticeListener>();
   private openListeners = new Set<NoticeOpenListener>();
+  private remotePushScopes = new Set<string>();
   private memoryFallbackStore: PersistedNoticeStore = {
     noticesByScope: {},
     dispatchedNoticeIds: [],
@@ -368,9 +379,35 @@ export class NotificationService {
     return () => this.openListeners.delete(listener);
   }
 
-  private emitNoticeOpen(noticeId: unknown): void {
+  public openNotice(noticeId: unknown, target?: NoticeOpenTarget): void {
     if (typeof noticeId !== 'string' || !noticeId) return;
-    for (const listener of this.openListeners) listener(noticeId);
+    for (const listener of this.openListeners) listener(noticeId, target);
+  }
+
+  public setRemotePushActive(workspaceId: string, memberId: string, active: boolean): void {
+    const scope = makeScopeKey(workspaceId, memberId);
+    if (active) this.remotePushScopes.add(scope);
+    else this.remotePushScopes.delete(scope);
+  }
+
+  /** Same notice ID and inbox store for remote push and live snapshot updates. */
+  public receiveRemotePush(data: RemotePushData, open = false): void {
+    if (!data.noticeId || !data.workspaceId || !data.targetMemberId || !data.taskId) return;
+    if (data.kind !== 'task_assigned' && data.kind !== 'subtask_assigned') return;
+    this.dispatchNotices([{
+      id: data.noticeId,
+      workspaceId: data.workspaceId,
+      workspaceCode: '',
+      targetMemberId: data.targetMemberId,
+      actorName: data.actorName || 'Đồng đội',
+      kind: data.kind,
+      taskId: data.taskId,
+      taskTitle: data.taskTitle || 'Việc mới',
+      subtaskTitle: data.subtaskTitle || undefined,
+      createdAt: data.createdAt || new Date().toISOString(),
+      read: false,
+    }], { deviceAlert: false });
+    if (open) this.openNotice(data.noticeId, { taskId: data.taskId, workspaceId: data.workspaceId });
   }
 
   private attachNotificationOpenListeners(): void {
@@ -379,7 +416,10 @@ export class NotificationService {
 
     if (isNativeNotificationPlatform()) {
       void LocalNotifications.addListener('localNotificationActionPerformed', (action) => {
-        this.emitNoticeOpen(action.notification.extra?.noticeId);
+        this.openNotice(action.notification.extra?.noticeId, {
+          taskId: action.notification.extra?.taskId,
+          workspaceId: action.notification.extra?.workspaceId,
+        });
       }).catch(() => {
         this.notificationOpenListenersAttached = false;
       });
@@ -389,7 +429,10 @@ export class NotificationService {
     if (typeof navigator !== 'undefined' && navigator.serviceWorker) {
       navigator.serviceWorker.addEventListener('message', (event: MessageEvent) => {
         if (event.data?.type === 'stackflow:notice-open') {
-          this.emitNoticeOpen(event.data.noticeId);
+          this.openNotice(event.data.noticeId, {
+            taskId: event.data.taskId,
+            workspaceId: event.data.workspaceId,
+          });
         }
       });
     }
@@ -584,6 +627,7 @@ export class NotificationService {
 
     if (options.deviceAlert !== false) {
       for (const notice of newlyAccepted) {
+        if (this.remotePushScopes.has(makeScopeKey(notice.workspaceId, notice.targetMemberId))) continue;
         const stackTitle = options.snapshot
           ? resolveNoticeStackTitle(notice, options.snapshot)
           : null;
@@ -687,7 +731,7 @@ export class NotificationService {
       popup.onclick = () => {
         popup.close();
         window.focus();
-        this.emitNoticeOpen(notice.id);
+        this.openNotice(notice.id, { taskId: notice.taskId, workspaceId: notice.workspaceId });
       };
     } catch {
       // Ignore mobile browsers that disallow direct Notification constructor without SW

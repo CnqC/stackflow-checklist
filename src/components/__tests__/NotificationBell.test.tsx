@@ -31,6 +31,7 @@ describe('NotificationBell inbox', () => {
 
     render(<NotificationBell
       snapshot={snapshot}
+      syncMode="local"
       memberId={member.id}
       onOpenTask={openTask}
     />);

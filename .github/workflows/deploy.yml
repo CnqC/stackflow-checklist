@@ -40,6 +40,10 @@ jobs:
         run: npm test
 
       - name: Build Production Bundle
+        env:
+          VITE_SUPABASE_URL: ${{ vars.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_ANON_KEY: ${{ vars.VITE_SUPABASE_ANON_KEY }}
+          VITE_WEB_PUSH_PUBLIC_KEY: ${{ vars.VITE_WEB_PUSH_PUBLIC_KEY }}
         run: npm run build
 
       - name: Setup GitHub Pages
@@ -75,35 +79,48 @@ jobs:
           cache: 'gradle'
 
       - name: Install dependencies & Sync Capacitor Android
+        env:
+          FIREBASE_GOOGLE_SERVICES_JSON_BASE64: ${{ secrets.FIREBASE_GOOGLE_SERVICES_JSON_BASE64 }}
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          VITE_SUPABASE_URL: ${{ vars.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_ANON_KEY: ${{ vars.VITE_SUPABASE_ANON_KEY }}
+          VITE_WEB_PUSH_PUBLIC_KEY: ${{ vars.VITE_WEB_PUSH_PUBLIC_KEY }}
         run: |
           npm ci
+          if [ -n "$FIREBASE_GOOGLE_SERVICES_JSON_BASE64" ]; then
+            printf '%s' "$FIREBASE_GOOGLE_SERVICES_JSON_BASE64" | base64 -d > android/app/google-services.json
+          fi
+          if [ -n "$ANDROID_KEYSTORE_BASE64" ]; then
+            printf '%s' "$ANDROID_KEYSTORE_BASE64" | base64 -d > android/app/stackflow-release.jks
+            echo "ANDROID_KEYSTORE_FILE=$GITHUB_WORKSPACE/android/app/stackflow-release.jks" >> "$GITHUB_ENV"
+          fi
           npm run build
           npx cap sync android
 
       - name: Build Android APK via Gradle
+        env:
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
         working-directory: android
         run: |
           chmod +x gradlew
-          ./gradlew assembleDebug
+          if [ -n "$ANDROID_KEYSTORE_FILE" ]; then
+            ./gradlew assembleRelease
+          else
+            ./gradlew assembleDebug
+          fi
 
       - name: Prepare StackFlow-Checklist.apk
         run: |
-          cp android/app/build/outputs/apk/debug/app-debug.apk StackFlow-Checklist.apk
+          if [ -f android/app/build/outputs/apk/release/app-release.apk ]; then
+            cp android/app/build/outputs/apk/release/app-release.apk StackFlow-Checklist.apk
+          else
+            cp android/app/build/outputs/apk/debug/app-debug.apk StackFlow-Checklist.apk
+          fi
 
       - name: Upload APK Artifact
         uses: actions/upload-artifact@v4
         with:
           name: StackFlow-Checklist-APK
           path: StackFlow-Checklist.apk
-
-      - name: Publish / Update Latest GitHub Release with APK
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          if gh release view v1.0.0 >/dev/null 2>&1; then
-            gh release upload v1.0.0 StackFlow-Checklist.apk --clobber
-          else
-            gh release create v1.0.0 StackFlow-Checklist.apk \
-              --title "StackFlow Checklist v1.0.0 (Web PWA & Android APK)" \
-              --notes "Bản cài đặt Android gốc (.apk) đồng bộ thời gian thực cùng Web & PWA cho nhóm dự án <10 thành viên."
-          fi

@@ -1,0 +1,5 @@
+[functions.push-device]
+verify_jwt = false
+
+[functions.push-send]
+verify_jwt = false

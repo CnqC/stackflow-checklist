@@ -1,5 +1,10 @@
 apply plugin: 'com.android.application'
 
+def releaseStoreFile = System.getenv('ANDROID_KEYSTORE_FILE')
+def releaseStorePassword = System.getenv('ANDROID_KEYSTORE_PASSWORD')
+def releaseKeyAlias = System.getenv('ANDROID_KEY_ALIAS')
+def releaseKeyPassword = System.getenv('ANDROID_KEY_PASSWORD')
+
 android {
     namespace = "com.quang.stackflow"
     compileSdk = rootProject.ext.compileSdkVersion
@@ -15,6 +20,17 @@ android {
              // Default: https://android.googlesource.com/platform/frameworks/base/+/282e181b58cf72b6ca770dc7ca5f91f135444502/tools/aapt/AaptAssets.cpp#61
             ignoreAssetsPattern = '!.svn:!.git:!.ds_store:!*.scc:.*:!CVS:!thumbs.db:!picasa.ini:!*~'
         }
+    }
+    if (releaseStoreFile && releaseStorePassword && releaseKeyAlias && releaseKeyPassword) {
+        signingConfigs {
+            release {
+                storeFile file(releaseStoreFile)
+                storePassword releaseStorePassword
+                keyAlias releaseKeyAlias
+                keyPassword releaseKeyPassword
+            }
+        }
+        buildTypes.release.signingConfig signingConfigs.release
     }
     buildTypes {
         release {

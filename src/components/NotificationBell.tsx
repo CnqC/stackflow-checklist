@@ -1,15 +1,17 @@
 import React, { useEffect, useId, useRef, useState } from 'react';
 import { Bell, BellRing, Check, CheckCheck, Sparkles, Trash2, X } from 'lucide-react';
 import { resolveNoticeStackTitle } from '../core/domain/noticePresentation';
+import { pushRegistrationService } from '../infrastructure/notifications/pushRegistrationService';
 import {
   notificationService,
   isNativeNotificationPlatform,
   type NotificationPermissionState,
 } from '../infrastructure/notifications/notificationService';
-import type { AppNotice, WorkspaceSnapshot } from '../types/models';
+import type { AppNotice, SyncMode, WorkspaceSnapshot } from '../types/models';
 
 export interface NotificationBellProps {
   snapshot: WorkspaceSnapshot;
+  syncMode: SyncMode;
   memberId: string;
   memberName?: string;
   onOpenTask: (taskId: string) => void;
@@ -32,6 +34,7 @@ function formatRelativeTimeVi(isoDate: string): string {
 
 export const NotificationBell: React.FC<NotificationBellProps> = ({
   snapshot,
+  syncMode,
   memberId,
   memberName,
   onOpenTask,
@@ -48,6 +51,9 @@ export const NotificationBell: React.FC<NotificationBellProps> = ({
   const [requestingPerm, setRequestingPerm] = useState(false);
   const [deviceAlertsEnabled, setDeviceAlertsEnabled] = useState(() =>
     notificationService.areDeviceAlertsEnabled(workspaceId, memberId),
+  );
+  const [remotePushActive, setRemotePushActive] = useState(() =>
+    pushRegistrationService.isActiveFor(workspaceId, memberId),
   );
   const panelId = useId();
   const containerRef = useRef<HTMLDivElement | null>(null);
@@ -66,6 +72,10 @@ export const NotificationBell: React.FC<NotificationBellProps> = ({
   }, [workspaceId, memberId]);
 
   useEffect(() => notificationService.subscribeNoticeOpens(() => setOpen(false)), []);
+
+  useEffect(() => pushRegistrationService.subscribeStatus(() => {
+    setRemotePushActive(pushRegistrationService.isActiveFor(workspaceId, memberId));
+  }), [workspaceId, memberId]);
 
   useEffect(() => {
     if (!open) return;
@@ -96,8 +106,9 @@ export const NotificationBell: React.FC<NotificationBellProps> = ({
     if (requestingPerm) return;
     setRequestingPerm(true);
     try {
-      await notificationService.requestPermission();
+      const granted = await notificationService.requestPermission();
       setPermission(notificationService.getPermissionState());
+      if (granted) await pushRegistrationService.sync(snapshot, memberId, syncMode, true);
     } finally {
       setRequestingPerm(false);
     }
@@ -203,7 +214,12 @@ export const NotificationBell: React.FC<NotificationBellProps> = ({
             {permission === 'granted' ? (
               <button
                 type="button"
-                onClick={() => notificationService.setDeviceAlertsEnabled(workspaceId, memberId, !deviceAlertsEnabled)}
+                onClick={() => {
+                  const enabled = !deviceAlertsEnabled;
+                  notificationService.setDeviceAlertsEnabled(workspaceId, memberId, enabled);
+                  if (enabled) void pushRegistrationService.sync(snapshot, memberId, syncMode, true);
+                  else void pushRegistrationService.disable();
+                }}
                 className={`w-full flex items-center gap-2 text-xs border rounded-xl px-3 py-2 cursor-pointer ${
                   deviceAlertsEnabled
                     ? 'text-emerald-300 bg-emerald-500/10 hover:bg-emerald-500/20 border-emerald-500/25'
@@ -244,6 +260,13 @@ export const NotificationBell: React.FC<NotificationBellProps> = ({
                 </span>
               </button>
               </div>
+            )}
+            {deviceAlertsEnabled && permission === 'granted' && !remotePushActive && (
+              <p className="text-[11px] text-amber-300 mt-2 leading-relaxed">
+                {syncMode === 'supabase'
+                  ? 'Báo khi đóng ứng dụng chưa sẵn sàng trên thiết bị này. Cần hoàn tất cấu hình push.'
+                  : 'Hiện chỉ báo khi ứng dụng đang chạy. Báo khi đóng ứng dụng cần máy chủ push.'}
+              </p>
             )}
           </div>
 

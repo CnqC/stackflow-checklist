@@ -19,7 +19,7 @@
   - **Chia phần việc nhỏ ngay trong mục (`Chia phần việc nhỏ trong mục này`)**: Tách một việc lớn thành nhiều bước nhỏ và gắn tên từng bạn phụ trách riêng cho từng bước ngay bên trong đầu việc đó.
   - **Chuông báo việc mới trên thiết bị và tab Web**: Mở biểu tượng chuông và chủ động bật quyền thông báo. Khi ứng dụng đang kết nối, việc mới được giao sẽ hiện trong hộp chuông và trên Android hoặc trình duyệt nếu đã cấp quyền. Bấm thông báo để mở đúng đầu việc. Tab Web hiện số chưa đọc và Stack mới nhất, ví dụ `(3) StackFlow — Stack 2`.
     - Hộp chuông tách thông báo chưa đọc/đã đọc, có nút tắt riêng báo trên thiết bị và chỉ xóa lịch sử đã đọc. Khi mở lại app, hệ thống đối chiếu mốc công việc đã lưu trên thiết bị này để tìm việc mới.
-    - Thông báo tức thì khi app/trang Web đã đóng hẳn cần dịch vụ push phía máy chủ; phiên bản hiện tại sẽ cập nhật hộp chuông khi mở lại.
+    - Thông báo khi app/trang Web đã đóng cần cấu hình Supabase, Firebase và Web Push theo [`PUSH_SETUP.md`](./PUSH_SETUP.md). Khi chưa cấu hình, app sẽ báo rõ trong hộp chuông và cập nhật việc mới lúc mở lại.
     - Quy tắc kỹ thuật và giới hạn được ghi tại [`NOTIFICATIONS.md`](./NOTIFICATIONS.md).
   - Đổi trạng thái (`Cần làm`, `Đang làm`, `Đang kẹt`, `Hoàn thành`), mức ưu tiên, hạn chót (`Deadline`), ghi chú và **Link đính kèm** (GitHub, Figma, Notion, Drive...).
   - Bộ lọc nhanh **`Việc của tôi`** (tự động gom cả việc chính lẫn phần việc nhỏ bạn được giao), tìm kiếm tức thì và **Nhật ký hoạt động trực tiếp**.
