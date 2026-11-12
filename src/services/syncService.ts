@@ -5,7 +5,10 @@ import {
   sanitizeWorkspaceSnapshot,
   type RawWorkspaceSnapshotInput,
 } from '../core/domain/dataValidator';
-import { detectNewAssignmentNotices } from '../core/domain/notificationDiffEngine';
+import {
+  detectNewAssignmentNotices,
+  type AssignmentCheckpoint,
+} from '../core/domain/notificationDiffEngine';
 import { domainEventBus } from '../core/events/domainEventBus';
 import {
   canAddMember,
@@ -350,7 +353,10 @@ export class StackFlowSyncService {
     };
   }
 
-  private emitSnapshot(rawSnapshot: WorkspaceSnapshot | RawWorkspaceSnapshotInput): void {
+  private emitSnapshot(
+    rawSnapshot: WorkspaceSnapshot | RawWorkspaceSnapshotInput,
+    options: { deviceAlert?: boolean } = {},
+  ): void {
     const sanitized = sanitizeWorkspaceSnapshot(rawSnapshot);
     domainEventBus.emit('workspace:sanitized', {
       workspaceId: sanitized.workspace.id,
@@ -370,20 +376,11 @@ export class StackFlowSyncService {
     };
 
     const prevSnapshot = this.currentSnapshot;
-    if (this.activeMember) {
-      const newNotices = detectNewAssignmentNotices(
-        prevSnapshot,
-        normalized,
-        this.activeMember.id,
-      );
-      if (newNotices.length > 0) {
-        domainEventBus.emit('notices:detected', {
-          workspaceId: normalized.workspace.id,
-          targetMemberId: this.activeMember.id,
-          notices: newNotices,
-        });
-        notificationService.dispatchNotices(newNotices);
-      }
+    if (this.activeMember?.workspaceId === normalized.workspace.id) {
+      const previous = prevSnapshot?.workspace.id === normalized.workspace.id
+        ? prevSnapshot
+        : notificationService.getAssignmentCheckpoint(normalized.workspace.id, this.activeMember.id);
+      this.reconcileAssignmentNotices(previous, normalized, this.activeMember.id, options.deviceAlert);
     }
 
     this.currentSnapshot = normalized;
@@ -396,6 +393,23 @@ export class StackFlowSyncService {
     for (const listener of this.snapshotListeners) {
       listener(normalized);
     }
+  }
+
+  private reconcileAssignmentNotices(
+    previous: AssignmentCheckpoint | WorkspaceSnapshot | null,
+    next: WorkspaceSnapshot,
+    memberId: string,
+    deviceAlert = true,
+  ): void {
+    const notices = detectNewAssignmentNotices(previous, next, memberId);
+    notificationService.saveAssignmentCheckpoint(next, memberId);
+    if (notices.length === 0) return;
+    domainEventBus.emit('notices:detected', {
+      workspaceId: next.workspace.id,
+      targetMemberId: memberId,
+      notices,
+    });
+    notificationService.dispatchNotices(notices, { deviceAlert, snapshot: next });
   }
 
   private emitPresence(peers: PresencePeer[]): void {
@@ -448,7 +462,7 @@ export class StackFlowSyncService {
       }
 
       const snapshot = await this.fetchFullSupabaseSnapshot(ws.id);
-      this.emitSnapshot(snapshot);
+      this.emitSnapshot(snapshot, { deviceAlert: false });
       this.setupRealtimeSubscriptions(ws.id);
       return this.currentSnapshot ?? snapshot;
     }
@@ -463,7 +477,7 @@ export class StackFlowSyncService {
       const sanitizedExisting = sanitizeWorkspaceSnapshot(existing);
       db.workspaces[code] = sanitizedExisting;
       writeLocalDb(db);
-      this.emitSnapshot(sanitizedExisting);
+      this.emitSnapshot(sanitizedExisting, { deviceAlert: false });
       this.setupLocalBroadcastSubscriptions(sanitizedExisting.workspace.code);
       void this.attachE2eeRelaySession(sanitizedExisting.workspace.code, pin, sanitizedExisting);
       return this.currentSnapshot ?? sanitizedExisting;
@@ -477,7 +491,7 @@ export class StackFlowSyncService {
         const freshDb = readLocalDb();
         freshDb.workspaces[code] = sanitizedRemote;
         writeLocalDb(freshDb);
-        this.emitSnapshot(sanitizedRemote);
+        this.emitSnapshot(sanitizedRemote, { deviceAlert: false });
         this.setupLocalBroadcastSubscriptions(code, true);
         return this.currentSnapshot ?? sanitizedRemote;
       }
@@ -808,6 +822,14 @@ export class StackFlowSyncService {
     this.activeMember = member;
     if (!this.currentSnapshot) return;
 
+    if (member && member.workspaceId === this.currentSnapshot.workspace.id) {
+      const previous = notificationService.getAssignmentCheckpoint(
+        this.currentSnapshot.workspace.id,
+        member.id,
+      );
+      this.reconcileAssignmentNotices(previous, this.currentSnapshot, member.id, false);
+    }
+
     if (this.realtimeChannel && member) {
       void this.realtimeChannel.track({
         memberId: member.id,
@@ -972,7 +994,7 @@ export class StackFlowSyncService {
         const db = readLocalDb();
         db.workspaces[workspaceCode] = sanitizedRemote;
         writeLocalDb(db);
-        this.emitSnapshot(sanitizedRemote);
+        this.emitSnapshot(sanitizedRemote, { deviceAlert: false });
       } else if (sanitizedLocal.workspace.updatedAt > sanitizedRemote.workspace.updatedAt) {
         await relay.publishSnapshot(this.currentSnapshot ?? sanitizedLocal);
       }

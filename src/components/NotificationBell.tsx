@@ -1,13 +1,15 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useId, useRef, useState } from 'react';
 import { Bell, BellRing, Check, CheckCheck, Sparkles, Trash2, X } from 'lucide-react';
+import { resolveNoticeStackTitle } from '../core/domain/noticePresentation';
 import {
   notificationService,
+  isNativeNotificationPlatform,
   type NotificationPermissionState,
 } from '../infrastructure/notifications/notificationService';
-import type { AppNotice } from '../types/models';
+import type { AppNotice, WorkspaceSnapshot } from '../types/models';
 
 export interface NotificationBellProps {
-  workspaceId: string;
+  snapshot: WorkspaceSnapshot;
   memberId: string;
   memberName?: string;
   onOpenTask: (taskId: string) => void;
@@ -29,12 +31,13 @@ function formatRelativeTimeVi(isoDate: string): string {
 }
 
 export const NotificationBell: React.FC<NotificationBellProps> = ({
-  workspaceId,
+  snapshot,
   memberId,
   memberName,
   onOpenTask,
   compact = false,
 }) => {
+  const workspaceId = snapshot.workspace.id;
   const [open, setOpen] = useState(false);
   const [notices, setNotices] = useState<AppNotice[]>(() =>
     notificationService.getNotices(workspaceId, memberId),
@@ -43,12 +46,17 @@ export const NotificationBell: React.FC<NotificationBellProps> = ({
     notificationService.getPermissionState(),
   );
   const [requestingPerm, setRequestingPerm] = useState(false);
+  const [deviceAlertsEnabled, setDeviceAlertsEnabled] = useState(() =>
+    notificationService.areDeviceAlertsEnabled(workspaceId, memberId),
+  );
+  const panelId = useId();
   const containerRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     const syncState = () => {
       setNotices(notificationService.getNotices(workspaceId, memberId));
       setPermission(notificationService.getPermissionState());
+      setDeviceAlertsEnabled(notificationService.areDeviceAlertsEnabled(workspaceId, memberId));
     };
     syncState();
     const unsub = notificationService.subscribeNotices(() => {
@@ -56,6 +64,8 @@ export const NotificationBell: React.FC<NotificationBellProps> = ({
     });
     return unsub;
   }, [workspaceId, memberId]);
+
+  useEffect(() => notificationService.subscribeNoticeOpens(() => setOpen(false)), []);
 
   useEffect(() => {
     if (!open) return;
@@ -77,7 +87,10 @@ export const NotificationBell: React.FC<NotificationBellProps> = ({
     };
   }, [open]);
 
-  const unreadCount = notices.filter((n) => !n.read).length;
+  const unreadNotices = notices.filter((notice) => !notice.read);
+  const readNotices = notices.filter((notice) => notice.read);
+  const unreadCount = unreadNotices.length;
+  const displayedNotices = [...unreadNotices, ...readNotices];
 
   const handleEnableNotifications = async () => {
     if (requestingPerm) return;
@@ -101,7 +114,7 @@ export const NotificationBell: React.FC<NotificationBellProps> = ({
   };
 
   const handleClearNotices = () => {
-    notificationService.clearNotices(workspaceId, memberId);
+    notificationService.clearReadNotices(workspaceId, memberId);
   };
 
   return (
@@ -109,6 +122,8 @@ export const NotificationBell: React.FC<NotificationBellProps> = ({
       <button
         type="button"
         onClick={() => setOpen((prev) => !prev)}
+        aria-expanded={open}
+        aria-controls={open ? panelId : undefined}
         aria-label={
           unreadCount > 0
             ? `Thông báo việc mới (${unreadCount} chưa đọc)`
@@ -126,7 +141,7 @@ export const NotificationBell: React.FC<NotificationBellProps> = ({
         }`}
       >
         {unreadCount > 0 ? (
-          <BellRing className="w-4 h-4 text-amber-400 animate-pulse" />
+          <BellRing className="w-4 h-4 text-amber-400" />
         ) : (
           <Bell className="w-4 h-4 text-indigo-400" />
         )}
@@ -141,7 +156,7 @@ export const NotificationBell: React.FC<NotificationBellProps> = ({
       </button>
 
       {open && (
-        <div className="fixed inset-x-3 top-16 sm:absolute sm:inset-x-auto sm:right-0 sm:top-full sm:mt-2 sm:w-96 z-50 rounded-2xl bg-slate-900 border border-slate-700/90 shadow-2xl shadow-black/60 overflow-hidden">
+        <div id={panelId} className="fixed inset-x-3 top-16 sm:absolute sm:inset-x-auto sm:right-0 sm:top-full sm:mt-2 sm:w-96 z-50 rounded-2xl bg-slate-900 border border-slate-700/90 shadow-2xl shadow-black/60 overflow-hidden">
           {/* Header */}
           <div className="px-4 py-3 bg-slate-950/90 border-b border-slate-800 flex items-center justify-between gap-2">
             <div>
@@ -186,15 +201,36 @@ export const NotificationBell: React.FC<NotificationBellProps> = ({
           {/* 1-Tap OS / Browser Notification Permission Banner */}
           <div className="px-4 py-2.5 bg-slate-900/95 border-b border-slate-800/80">
             {permission === 'granted' ? (
-              <div className="flex items-center gap-2 text-xs text-emerald-300 bg-emerald-500/10 border border-emerald-500/25 rounded-xl px-3 py-2">
-                <Check className="w-4 h-4 text-emerald-400 shrink-0" />
-                <span className="font-medium">✓ Đã bật báo chuông khi có việc mới</span>
-              </div>
+              <button
+                type="button"
+                onClick={() => notificationService.setDeviceAlertsEnabled(workspaceId, memberId, !deviceAlertsEnabled)}
+                className={`w-full flex items-center gap-2 text-xs border rounded-xl px-3 py-2 cursor-pointer ${
+                  deviceAlertsEnabled
+                    ? 'text-emerald-300 bg-emerald-500/10 hover:bg-emerald-500/20 border-emerald-500/25'
+                    : 'text-slate-300 bg-slate-800 hover:bg-slate-700 border-slate-700'
+                }`}
+                aria-pressed={deviceAlertsEnabled}
+              >
+                {deviceAlertsEnabled
+                  ? <Check className="w-4 h-4 text-emerald-400 shrink-0" />
+                  : <Bell className="w-4 h-4 text-slate-400 shrink-0" />}
+                <span className="font-medium">Báo trên thiết bị: {deviceAlertsEnabled ? 'Bật' : 'Tắt'}</span>
+              </button>
             ) : permission === 'denied' ? (
               <div className="text-[11px] text-amber-300 bg-amber-500/10 border border-amber-500/25 rounded-xl px-3 py-2 leading-relaxed">
-                Bạn đang tắt quyền thông báo trên trình duyệt / điện thoại. Hãy bật lại trong Cài đặt để nghe chuông khi đồng đội giao việc nhé!
+                {isNativeNotificationPlatform()
+                  ? 'Để nhận thông báo ngoài app, mở Cài đặt điện thoại → Ứng dụng → StackFlow → Thông báo.'
+                  : 'Để nhận thông báo trên máy, bật quyền Thông báo cho trang này trong cài đặt trình duyệt.'}
+              </div>
+            ) : permission === 'unsupported' ? (
+              <div className="text-[11px] text-slate-400 rounded-xl px-3 py-2">
+                Trình duyệt này chưa hỗ trợ thông báo hệ thống. Việc mới vẫn hiện trong hộp chuông.
               </div>
             ) : (
+              <div className="space-y-2">
+              <p className="text-[11px] text-slate-400 leading-relaxed">
+                Cho phép thông báo để thấy việc mới ngoài ứng dụng. Hộp chuông vẫn hoạt động nếu bạn bỏ qua.
+              </p>
               <button
                 type="button"
                 onClick={() => void handleEnableNotifications()}
@@ -207,6 +243,7 @@ export const NotificationBell: React.FC<NotificationBellProps> = ({
                     : '🔔 Bật báo chuông trên điện thoại / trình duyệt'}
                 </span>
               </button>
+              </div>
             )}
           </div>
 
@@ -223,11 +260,17 @@ export const NotificationBell: React.FC<NotificationBellProps> = ({
                 </p>
               </div>
             ) : (
-              notices.map((notice) => {
+              displayedNotices.map((notice, index) => {
                 const isSubtask = notice.kind === 'subtask_assigned';
+                const stackTitle = resolveNoticeStackTitle(notice, snapshot);
                 return (
+                  <React.Fragment key={notice.id}>
+                  {(index === 0 || index === unreadCount) && (
+                    <div className="px-4 py-1.5 bg-slate-950/70 text-[10px] font-semibold uppercase tracking-wide text-slate-400">
+                      {index === 0 && unreadCount > 0 ? `Chưa đọc (${unreadCount})` : `Đã đọc (${readNotices.length})`}
+                    </div>
+                  )}
                   <button
-                    key={notice.id}
                     type="button"
                     onClick={() => handleClickNotice(notice)}
                     className={`w-full text-left px-4 py-3 flex items-start gap-3 transition cursor-pointer ${
@@ -257,6 +300,10 @@ export const NotificationBell: React.FC<NotificationBellProps> = ({
                         </span>
                       </div>
 
+                      {stackTitle && (
+                        <p className="text-[10px] font-medium text-slate-400 truncate">{stackTitle}</p>
+                      )}
+
                       {isSubtask ? (
                         <div className="space-y-0.5">
                           <p className="text-xs text-slate-100 font-medium leading-snug">
@@ -277,6 +324,7 @@ export const NotificationBell: React.FC<NotificationBellProps> = ({
                       )}
                     </div>
                   </button>
+                  </React.Fragment>
                 );
               })
             )}
@@ -288,14 +336,14 @@ export const NotificationBell: React.FC<NotificationBellProps> = ({
               <span className="text-[11px] text-slate-500">
                 Tổng cộng {notices.length} thông báo
               </span>
-              <button
+              {readNotices.length > 0 && <button
                 type="button"
                 onClick={handleClearNotices}
                 className="inline-flex items-center gap-1 text-[11px] text-slate-400 hover:text-rose-400 cursor-pointer"
               >
                 <Trash2 className="w-3 h-3" />
-                <span>Xóa lịch sử</span>
-              </button>
+                <span>Xóa đã đọc</span>
+              </button>}
             </div>
           )}
         </div>

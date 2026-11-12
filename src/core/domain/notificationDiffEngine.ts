@@ -1,7 +1,39 @@
-import type { AppNotice, ChecklistItem, WorkspaceSnapshot } from '../../types/models';
+import type { AppNotice, ChecklistItem, SubtaskItem, WorkspaceSnapshot } from '../../types/models';
 import { normalizeAssigneeIds } from './dataValidator';
 
-function resolveEffectiveAssignees(item: ChecklistItem): string[] {
+export interface AssignmentCheckpoint {
+  workspace: { id: string };
+  items: Array<Pick<ChecklistItem, 'id' | 'assigneeId' | 'assigneeIds'> & {
+    subtasks: Array<Pick<SubtaskItem, 'id' | 'assigneeId'>>;
+  }>;
+}
+
+type AssignmentItem = AssignmentCheckpoint['items'][number];
+
+/** Retain only the assignments for this member, enough to detect changes after reopening. */
+export function captureAssignmentCheckpoint(
+  snapshot: WorkspaceSnapshot,
+  memberId: string,
+): AssignmentCheckpoint {
+  return {
+    workspace: { id: snapshot.workspace.id },
+    items: snapshot.items.flatMap((item) => {
+      const hasTask = resolveEffectiveAssignees(item).includes(memberId);
+      const subtasks = item.subtasks
+        .filter((subtask) => subtask.assigneeId === memberId)
+        .map((subtask) => ({ id: subtask.id, assigneeId: subtask.assigneeId }));
+      if (!hasTask && subtasks.length === 0) return [];
+      return [{
+        id: item.id,
+        assigneeId: hasTask ? memberId : null,
+        assigneeIds: hasTask ? [memberId] : [],
+        subtasks,
+      }];
+    }),
+  };
+}
+
+function resolveEffectiveAssignees(item: Pick<ChecklistItem, 'assigneeId' | 'assigneeIds'>): string[] {
   if (Array.isArray(item.assigneeIds) && item.assigneeIds.length > 0) {
     return normalizeAssigneeIds(item.assigneeIds);
   }
@@ -26,7 +58,7 @@ function isActorSelf(updatedByName: string | null | undefined, selfName: string 
  * - Produces deterministic notice IDs so duplicate deliveries never re-trigger popups.
  */
 export function detectNewAssignmentNotices(
-  prev: WorkspaceSnapshot | null,
+  prev: AssignmentCheckpoint | WorkspaceSnapshot | null,
   next: WorkspaceSnapshot,
   currentMemberId: string,
 ): AppNotice[] {
@@ -38,11 +70,9 @@ export function detectNewAssignmentNotices(
     return [];
   }
 
-  const currentMember =
-    next.members.find((m) => m.id === currentMemberId) ??
-    prev.members.find((m) => m.id === currentMemberId);
+  const currentMember = next.members.find((m) => m.id === currentMemberId);
 
-  const prevItemMap = new Map<string, ChecklistItem>();
+  const prevItemMap = new Map<string, AssignmentItem>();
   for (const pItem of prev.items) {
     prevItemMap.set(pItem.id, pItem);
   }

@@ -17,9 +17,10 @@
   - Tick hoàn thành 1 chạm với Optimistic UI (0ms độ trễ), tự động ghi nhận `✓ [Tên thành viên] đã hoàn thành`.
   - **Nhiều người cùng làm 1 đầu việc (`Người cùng làm`)**: Bấm chạm trực tiếp vào các thẻ tên thành viên để chọn nhiều bạn cùng phụ trách chung 1 đầu việc lớn.
   - **Chia phần việc nhỏ ngay trong mục (`Chia phần việc nhỏ trong mục này`)**: Tách một việc lớn thành nhiều bước nhỏ và gắn tên từng bạn phụ trách riêng cho từng bước ngay bên trong đầu việc đó.
-  - **Chuông báo việc mới trên Điện thoại & Trình duyệt (`🔔 Bật báo chuông khi có việc mới`)**: Chỉ cần bấm biểu tượng **Quả chuông (`🔔`)** trên thanh công cụ và bật chuông 1 lần — mỗi khi có bạn trong nhóm giao việc mới hoặc giao phần việc nhỏ cho bạn, điện thoại/máy tính sẽ báo tinh tinh ngay lập tức. Bấm vào thông báo sẽ mở thẳng đúng đầu việc đó.
-  - **Thông báo trên thiết bị và tab Web**: Sau khi cấp quyền qua nút trong quả chuông, Android APK hiển thị thông báo hệ thống; Chrome/Edge trên Windows hiển thị thông báo trình duyệt. Tab Web hiện `Notice (1) - Tên Stack` cho thông báo chưa đọc; nếu có nhiều thông báo, tab đổi lần lượt mỗi 3 giây và trở lại tên StackFlow khi đã đọc hết.
-    - Thông báo thiết bị hiện khi ứng dụng đang nhận dữ liệu đồng bộ. Để nhận thông báo dù đã đóng hẳn app/trình duyệt, dự án cần thêm dịch vụ push nền riêng.
+  - **Chuông báo việc mới trên thiết bị và tab Web**: Mở biểu tượng chuông và chủ động bật quyền thông báo. Khi ứng dụng đang kết nối, việc mới được giao sẽ hiện trong hộp chuông và trên Android hoặc trình duyệt nếu đã cấp quyền. Bấm thông báo để mở đúng đầu việc. Tab Web hiện số chưa đọc và Stack mới nhất, ví dụ `(3) StackFlow — Stack 2`.
+    - Hộp chuông tách thông báo chưa đọc/đã đọc, có nút tắt riêng báo trên thiết bị và chỉ xóa lịch sử đã đọc. Khi mở lại app, hệ thống đối chiếu mốc công việc đã lưu trên thiết bị này để tìm việc mới.
+    - Thông báo tức thì khi app/trang Web đã đóng hẳn cần dịch vụ push phía máy chủ; phiên bản hiện tại sẽ cập nhật hộp chuông khi mở lại.
+    - Quy tắc kỹ thuật và giới hạn được ghi tại [`NOTIFICATIONS.md`](./NOTIFICATIONS.md).
   - Đổi trạng thái (`Cần làm`, `Đang làm`, `Đang kẹt`, `Hoàn thành`), mức ưu tiên, hạn chót (`Deadline`), ghi chú và **Link đính kèm** (GitHub, Figma, Notion, Drive...).
   - Bộ lọc nhanh **`Việc của tôi`** (tự động gom cả việc chính lẫn phần việc nhỏ bạn được giao), tìm kiếm tức thì và **Nhật ký hoạt động trực tiếp**.
 - **Kiến trúc Đồng bộ Kép (`Dual-Engine Realtime Sync`)**:

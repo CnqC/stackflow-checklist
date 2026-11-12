@@ -1,14 +1,23 @@
 import { Capacitor } from '@capacitor/core';
 import { LocalNotifications } from '@capacitor/local-notifications';
+import {
+  captureAssignmentCheckpoint,
+  type AssignmentCheckpoint,
+} from '../../core/domain/notificationDiffEngine';
+import { resolveNoticeStackTitle } from '../../core/domain/noticePresentation';
 import { domainEventBus } from '../../core/events/domainEventBus';
-import type { AppNotice } from '../../types/models';
+import type { AppNotice, WorkspaceSnapshot } from '../../types/models';
 
 export type NotificationPermissionState = 'granted' | 'denied' | 'default' | 'unsupported';
 export type NoticeListener = (notices: AppNotice[]) => void;
+export type NoticeOpenListener = (noticeId: string) => void;
 
 const NOTICE_STORE_KEY = 'stackflow_inapp_notices_v2';
 const NATIVE_PERMISSION_CACHE_KEY = 'stackflow_native_notif_perm_v1';
-const ANDROID_CHANNEL_ID = 'stackflow_assignments';
+const ASSIGNMENT_CHECKPOINT_KEY = 'stackflow_assignment_checkpoints_v1';
+const DEVICE_ALERTS_PREF_KEY = 'stackflow_device_alerts_enabled_v1';
+// Android channels are immutable after creation, so the new default-importance channel needs a new ID.
+const ANDROID_CHANNEL_ID = 'stackflow_assignments_v2';
 const MAX_NOTICES_PER_SCOPE = 100;
 const MAX_DISPATCHED_IDS = 500;
 
@@ -41,17 +50,18 @@ export function hashNoticeIdToInt32(noticeId: string): number {
 /**
  * Formats friendly, zero-jargon Vietnamese OS/In-App notification copy.
  */
-export function formatNoticeMessage(notice: AppNotice): { title: string; body: string } {
+export function formatNoticeMessage(notice: AppNotice, stackTitle?: string | null): { title: string; body: string } {
+  const context = stackTitle ? ` · ${stackTitle}` : '';
   if (notice.kind === 'subtask_assigned') {
     const subLabel = notice.subtaskTitle?.trim() || notice.taskTitle;
     return {
-      title: '🔔 Phần việc mới trong nhóm',
-      body: `${notice.actorName} giao bạn làm: ${subLabel} (${notice.taskTitle})`,
+      title: `${notice.actorName} giao phần việc mới`,
+      body: `${subLabel} · ${notice.taskTitle}${context}`,
     };
   }
   return {
-    title: '🔔 Bạn được giao việc mới',
-    body: `${notice.actorName} vừa giao cho bạn: ${notice.taskTitle}`,
+    title: `${notice.actorName} giao việc cho bạn`,
+    body: `${notice.taskTitle}${context}`,
   };
 }
 
@@ -63,6 +73,7 @@ function mapCapacitorPermission(display: string | undefined): 'granted' | 'denie
 
 export class NotificationService {
   private listeners = new Set<NoticeListener>();
+  private openListeners = new Set<NoticeOpenListener>();
   private memoryFallbackStore: PersistedNoticeStore = {
     noticesByScope: {},
     dispatchedNoticeIds: [],
@@ -70,6 +81,7 @@ export class NotificationService {
   private androidChannelReady = false;
   private syncingNativePerm = false;
   private storageListenerAttached = false;
+  private notificationOpenListenersAttached = false;
 
   constructor() {
     this.attachCrossTabStorageListener();
@@ -80,7 +92,8 @@ export class NotificationService {
     if (typeof window.addEventListener !== 'function') return;
     this.storageListenerAttached = true;
     window.addEventListener('storage', (event: StorageEvent) => {
-      if (event.key === NOTICE_STORE_KEY || event.key === NATIVE_PERMISSION_CACHE_KEY) {
+      if (event.key === NOTICE_STORE_KEY || event.key === NATIVE_PERMISSION_CACHE_KEY ||
+          event.key === DEVICE_ALERTS_PREF_KEY) {
         this.notifySubscribers();
       }
     });
@@ -116,6 +129,19 @@ export class NotificationService {
       window.localStorage.setItem(NOTICE_STORE_KEY, JSON.stringify(store));
     } catch {
       // Ignore quota / private browsing errors
+    }
+  }
+
+  private readObjectStore<T>(key: string): Record<string, T> {
+    if (typeof window === 'undefined') return {};
+    try {
+      const raw = window.localStorage.getItem(key);
+      const parsed: unknown = raw ? JSON.parse(raw) : {};
+      return parsed && typeof parsed === 'object' && !Array.isArray(parsed)
+        ? parsed as Record<string, T>
+        : {};
+    } catch {
+      return {};
     }
   }
 
@@ -176,6 +202,68 @@ export class NotificationService {
     const snapshot = this.collectAllNotices(this.readStore());
     for (const listener of [...this.listeners]) {
       listener(snapshot);
+    }
+  }
+
+  /** Last observed assignments survive an app restart without copying the whole workspace. */
+  public getAssignmentCheckpoint(workspaceId: string, memberId: string): AssignmentCheckpoint | null {
+    if (typeof window === 'undefined' || !workspaceId || !memberId) return null;
+    try {
+      const store = this.readObjectStore<unknown>(ASSIGNMENT_CHECKPOINT_KEY);
+      const entry = store[makeScopeKey(workspaceId, memberId)] as AssignmentCheckpoint | undefined;
+      if (entry?.workspace?.id !== workspaceId || !Array.isArray(entry.items)) return null;
+      return {
+        workspace: { id: workspaceId },
+        items: entry.items.flatMap((item) => {
+          if (typeof item?.id !== 'string' || !Array.isArray(item.assigneeIds)) return [];
+          return [{
+            id: item.id,
+            assigneeId: item.assigneeId === memberId ? memberId : null,
+            assigneeIds: item.assigneeIds.filter((id) => id === memberId),
+            subtasks: Array.isArray(item.subtasks)
+              ? item.subtasks.flatMap((subtask) =>
+                typeof subtask?.id === 'string'
+                  ? [{
+                    id: subtask.id,
+                    assigneeId: subtask.assigneeId === memberId ? memberId : null,
+                  }]
+                  : [],
+              )
+              : [],
+          }];
+        }),
+      };
+    } catch {
+      return null;
+    }
+  }
+
+  public saveAssignmentCheckpoint(snapshot: WorkspaceSnapshot, memberId: string): void {
+    if (typeof window === 'undefined' || !memberId) return;
+    try {
+      const store = this.readObjectStore<AssignmentCheckpoint>(ASSIGNMENT_CHECKPOINT_KEY);
+      store[makeScopeKey(snapshot.workspace.id, memberId)] = captureAssignmentCheckpoint(snapshot, memberId);
+      window.localStorage.setItem(ASSIGNMENT_CHECKPOINT_KEY, JSON.stringify(store));
+    } catch {
+      // Live notices continue to work if device storage is unavailable.
+    }
+  }
+
+  public areDeviceAlertsEnabled(workspaceId: string, memberId: string): boolean {
+    if (typeof window === 'undefined') return true;
+    const store = this.readObjectStore<boolean>(DEVICE_ALERTS_PREF_KEY);
+    return store[makeScopeKey(workspaceId, memberId)] !== false;
+  }
+
+  public setDeviceAlertsEnabled(workspaceId: string, memberId: string, enabled: boolean): void {
+    if (typeof window === 'undefined' || !workspaceId || !memberId) return;
+    try {
+      const store = this.readObjectStore<boolean>(DEVICE_ALERTS_PREF_KEY);
+      store[makeScopeKey(workspaceId, memberId)] = enabled;
+      window.localStorage.setItem(DEVICE_ALERTS_PREF_KEY, JSON.stringify(store));
+      this.notifySubscribers();
+    } catch {
+      // The system permission and in-app inbox still work if storage is unavailable.
     }
   }
 
@@ -271,6 +359,40 @@ export class NotificationService {
     return () => {
       this.listeners.delete(listener);
     };
+  }
+
+  /** Opens a notice from a native notification, a service worker, or a browser popup. */
+  public subscribeNoticeOpens(listener: NoticeOpenListener): () => void {
+    this.openListeners.add(listener);
+    this.attachNotificationOpenListeners();
+    return () => this.openListeners.delete(listener);
+  }
+
+  private emitNoticeOpen(noticeId: unknown): void {
+    if (typeof noticeId !== 'string' || !noticeId) return;
+    for (const listener of this.openListeners) listener(noticeId);
+  }
+
+  private attachNotificationOpenListeners(): void {
+    if (this.notificationOpenListenersAttached) return;
+    this.notificationOpenListenersAttached = true;
+
+    if (isNativeNotificationPlatform()) {
+      void LocalNotifications.addListener('localNotificationActionPerformed', (action) => {
+        this.emitNoticeOpen(action.notification.extra?.noticeId);
+      }).catch(() => {
+        this.notificationOpenListenersAttached = false;
+      });
+      return;
+    }
+
+    if (typeof navigator !== 'undefined' && navigator.serviceWorker) {
+      navigator.serviceWorker.addEventListener('message', (event: MessageEvent) => {
+        if (event.data?.type === 'stackflow:notice-open') {
+          this.emitNoticeOpen(event.data.noticeId);
+        }
+      });
+    }
   }
 
   /**
@@ -372,11 +494,29 @@ export class NotificationService {
     this.notifySubscribers();
   }
 
+  /** Clears read history while leaving unread assignments visible. */
+  public clearReadNotices(workspaceId: string, memberId: string): void {
+    if (!workspaceId || !memberId) return;
+    const store = this.readStore();
+    const key = makeScopeKey(workspaceId, memberId);
+    const existing = store.noticesByScope[key];
+    if (!Array.isArray(existing)) return;
+    const unread = existing.filter((notice) => !notice.read);
+    if (unread.length === existing.length) return;
+    store.noticesByScope[key] = unread;
+    this.writeStore(store);
+    domainEventBus.emit('notices:changed', { workspaceId, memberId, notices: this.getNotices(workspaceId, memberId) });
+    this.notifySubscribers();
+  }
+
   /**
    * Stores new deduplicated `AppNotice` items in `localStorage`, notifies UI subscribers synchronously,
    * and dispatches native OS / Web notifications asynchronously for newly seen notice IDs.
    */
-  public dispatchNotices(notices: AppNotice[]): AppNotice[] {
+  public dispatchNotices(
+    notices: AppNotice[],
+    options: { deviceAlert?: boolean; snapshot?: WorkspaceSnapshot } = {},
+  ): AppNotice[] {
     if (!Array.isArray(notices) || notices.length === 0) {
       return [];
     }
@@ -442,8 +582,13 @@ export class NotificationService {
     }
     this.notifySubscribers();
 
-    for (const notice of newlyAccepted) {
-      void this.triggerOsNotification(notice);
+    if (options.deviceAlert !== false) {
+      for (const notice of newlyAccepted) {
+        const stackTitle = options.snapshot
+          ? resolveNoticeStackTitle(notice, options.snapshot)
+          : null;
+        void this.triggerOsNotification(notice, stackTitle);
+      }
     }
 
     return newlyAccepted;
@@ -454,10 +599,10 @@ export class NotificationService {
     try {
       await LocalNotifications.createChannel({
         id: ANDROID_CHANNEL_ID,
-        name: 'Giao việc nhóm StackFlow',
-        description: 'Báo chuông khi đồng đội giao việc hoặc chia phần việc nhỏ cho bạn',
-        importance: 4,
-        visibility: 1,
+        name: 'Việc được giao',
+        description: 'Thông báo khi đồng đội giao việc cho bạn',
+        importance: 3,
+        visibility: 0,
         vibration: true,
       });
       this.androidChannelReady = true;
@@ -466,8 +611,9 @@ export class NotificationService {
     }
   }
 
-  private async triggerOsNotification(notice: AppNotice): Promise<void> {
-    const { title, body } = formatNoticeMessage(notice);
+  private async triggerOsNotification(notice: AppNotice, stackTitle?: string | null): Promise<void> {
+    if (!this.areDeviceAlertsEnabled(notice.workspaceId, notice.targetMemberId)) return;
+    const { title, body } = formatNoticeMessage(notice, stackTitle);
 
     if (isNativeNotificationPlatform()) {
       try {
@@ -486,11 +632,12 @@ export class NotificationService {
               largeBody: body,
               channelId: ANDROID_CHANNEL_ID,
               autoCancel: true,
-              foreground: true,
+              foreground: false,
               isExactNotification: false,
               extra: {
                 noticeId: notice.id,
                 workspaceId: notice.workspaceId,
+                targetMemberId: notice.targetMemberId,
                 taskId: notice.taskId,
                 kind: notice.kind,
               },
@@ -521,6 +668,7 @@ export class NotificationService {
             data: {
               noticeId: notice.id,
               workspaceId: notice.workspaceId,
+              targetMemberId: notice.targetMemberId,
               taskId: notice.taskId,
             },
           });
@@ -532,10 +680,15 @@ export class NotificationService {
     }
 
     try {
-      new window.Notification(title, {
+      const popup = new window.Notification(title, {
         body,
         tag: notice.id,
       });
+      popup.onclick = () => {
+        popup.close();
+        window.focus();
+        this.emitNoticeOpen(notice.id);
+      };
     } catch {
       // Ignore mobile browsers that disallow direct Notification constructor without SW
     }

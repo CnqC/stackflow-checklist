@@ -351,9 +351,11 @@ describe('Wave 3 QA Audit — Clean Architecture, Schema v1->v2 Governance & Ass
 
       const formatted = formatNoticeMessage(noticesForMinh.find((n) => n.taskId === 'task-new-collab')!);
       expect(formatted).toEqual({
-        title: '🔔 Bạn được giao việc mới',
-        body: 'Quang vừa giao cho bạn: Chuẩn bị slide demo cuối tuần',
+        title: 'Quang giao việc cho bạn',
+        body: 'Chuẩn bị slide demo cuối tuần',
       });
+      expect(formatNoticeMessage(noticesForMinh.find((n) => n.taskId === 'task-new-collab')!, 'Stack 2'))
+        .toEqual({ title: 'Quang giao việc cho bạn', body: 'Chuẩn bị slide demo cuối tuần · Stack 2' });
 
       // Uninvolved member (Linh was already on existingTaskTarget or not newly added) gets 0 notices
       const noticesForLinh = detectNewAssignmentNotices(prev, next, linh.id);
@@ -401,8 +403,8 @@ describe('Wave 3 QA Audit — Clean Architecture, Schema v1->v2 Governance & Ass
       });
 
       expect(formatNoticeMessage(notices[0]!)).toEqual({
-        title: '🔔 Phần việc mới trong nhóm',
-        body: `Quang giao bạn làm: Kiểm tra kết nối API (${targetTask.title})`,
+        title: 'Quang giao phần việc mới',
+        body: `Kiểm tra kết nối API · ${targetTask.title}`,
       });
     });
 
@@ -523,8 +525,8 @@ describe('Wave 3 QA Audit — Clean Architecture, Schema v1->v2 Governance & Ass
         expect(acceptedDuplicate).toHaveLength(0);
         expect(firedPopups).toHaveLength(1);
         expect(firedPopups[0]).toEqual({
-          title: '🔔 Bạn được giao việc mới',
-          body: 'Quang vừa giao cho bạn: Hoàn thiện kiểm thử tự động',
+          title: 'Quang giao việc cho bạn',
+          body: 'Hoàn thiện kiểm thử tự động',
           tag: sampleNotice.id,
         });
       } finally {

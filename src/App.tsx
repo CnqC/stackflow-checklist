@@ -30,6 +30,7 @@ import {
   STACK_PALETTE,
 } from './domain/stackDomain';
 import { watchBrowserTabNotices } from './infrastructure/notifications/browserTabTitle';
+import { notificationService } from './infrastructure/notifications/notificationService';
 import { syncService } from './services/syncService';
 import {
   MAX_TEAM_MEMBERS,
@@ -54,7 +55,9 @@ type MobileTab = 'board' | 'mine' | 'activity' | 'team';
 export function App() {
   const [syncMode, setSyncMode] = useState<SyncMode>(() => syncService.getSyncMode());
   const [snapshot, setSnapshot] = useState<WorkspaceSnapshot | null>(null);
-  const [currentMember, setCurrentMember] = useState<Member | null>(null);
+  const [selectedMember, setCurrentMember] = useState<Member | null>(null);
+  const currentMember = snapshot?.members.find((member) => member.id === selectedMember?.id)
+    ?? selectedMember;
   const [onlinePeers, setOnlinePeers] = useState<PresencePeer[]>([]);
 
   const [filter, setFilter] = useState<TaskFilter>('all');
@@ -74,6 +77,9 @@ export function App() {
   const [toast, setToast] = useState<string | null>(null);
   const [deferredInstallPrompt, setDeferredInstallPrompt] =
     useState<BeforeInstallPromptEvent | null>(null);
+  const [pendingNoticeId, setPendingNoticeId] = useState<string | null>(() =>
+    typeof window === 'undefined' ? null : new URLSearchParams(window.location.search).get('notice'),
+  );
 
   // Parse URL invite params if present
   const urlParams = useMemo(() => {
@@ -150,18 +156,35 @@ export function App() {
     void restore();
   }, [urlParams.pin, urlParams.room]);
 
-  // Keep currentMember synced if member list updates
-  useEffect(() => {
-    if (!snapshot || !currentMember) return;
-    const updatedMe = snapshot.members.find((m) => m.id === currentMember.id);
-    if (updatedMe && updatedMe !== currentMember) {
-      setCurrentMember(updatedMe);
-    }
-  }, [snapshot, currentMember]);
-
   useEffect(() => {
     return watchBrowserTabNotices(snapshot, currentMember?.id ?? null);
   }, [snapshot, currentMember?.id]);
+
+  useEffect(() => notificationService.subscribeNoticeOpens(setPendingNoticeId), []);
+
+  useEffect(() => {
+    if (!pendingNoticeId || !snapshot || !currentMember) return;
+    let cancelled = false;
+    queueMicrotask(() => {
+      if (cancelled) return;
+      const notice = notificationService.getNotices(snapshot.workspace.id, currentMember.id)
+        .find((entry) => entry.id === pendingNoticeId);
+      if (notice) {
+        notificationService.markNoticeRead(notice.id, snapshot.workspace.id, currentMember.id);
+        if (snapshot.items.some((item) => item.id === notice.taskId)) {
+          setMobileTab('board');
+          setSelectedItemId(notice.taskId);
+        }
+      }
+      setPendingNoticeId(null);
+      const url = new URL(window.location.href);
+      if (url.searchParams.get('notice') === pendingNoticeId) {
+        url.searchParams.delete('notice');
+        window.history.replaceState(window.history.state, '', url);
+      }
+    });
+    return () => { cancelled = true; };
+  }, [pendingNoticeId, snapshot, currentMember]);
 
   const persistSession = (roomCode: string, pinCode: string, memberId?: string) => {
     const payload: SavedSession = { roomCode, pinCode, memberId };
@@ -202,6 +225,7 @@ export function App() {
 
   const handleLogout = () => {
     syncService.teardownConnections();
+    syncService.setActiveMember(null);
     window.localStorage.removeItem(SESSION_STORAGE_KEY);
     setCurrentMember(null);
     setSnapshot(null);
@@ -592,7 +616,7 @@ export function App() {
 
           <div className="flex items-center gap-1.5 shrink-0">
             <NotificationBell
-              workspaceId={snapshot.workspace.id}
+              snapshot={snapshot}
               memberId={currentMember.id}
               memberName={currentMember.name}
               onOpenTask={handleOpenTaskFromNotice}
@@ -663,7 +687,7 @@ export function App() {
 
               <div className="hidden lg:flex items-center gap-2">
                 <NotificationBell
-                  workspaceId={snapshot.workspace.id}
+                  snapshot={snapshot}
                   memberId={currentMember.id}
                   memberName={currentMember.name}
                   onOpenTask={handleOpenTaskFromNotice}

@@ -1,7 +1,7 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it } from 'vitest';
 import { createSeedWorkspaceSnapshot } from '../../../core/domain/stackDomain';
 import type { AppNotice } from '../../../types/models';
-import { getUnreadNoticeTabTitles, watchBrowserTabNotices } from '../browserTabTitle';
+import { getUnreadNoticeTabTitle, watchBrowserTabNotices } from '../browserTabTitle';
 import { notificationService } from '../notificationService';
 
 const BASE_TITLE = 'StackFlow — Checklist Nhóm Dự Án';
@@ -29,11 +29,6 @@ describe('Browser tab assignment notices', () => {
   beforeEach(() => {
     window.localStorage.clear();
     document.title = BASE_TITLE;
-    vi.useFakeTimers();
-  });
-
-  afterEach(() => {
-    vi.useRealTimers();
   });
 
   it('uses current workspace task and stack data, scoped to the active member', () => {
@@ -42,37 +37,31 @@ describe('Browser tab assignment notices', () => {
     const anotherWorkspace = { ...own, id: 'other-workspace', workspaceId: 'elsewhere' };
     const read = { ...own, id: 'read', read: true };
 
-    expect(getUnreadNoticeTabTitles([own, anotherMember, anotherWorkspace, read], snapshot, memberId))
-      .toEqual([`Notice (1) - ${firstStack}`]);
-    expect(getUnreadNoticeTabTitles([own], snapshot, null)).toEqual([]);
+    expect(getUnreadNoticeTabTitle([own, anotherMember, anotherWorkspace, read], snapshot, memberId))
+      .toBe(`(1) StackFlow — ${firstStack}`);
+    expect(getUnreadNoticeTabTitle([own], snapshot, null)).toBeNull();
   });
 
-  it('rotates unread stack names and restores the original title after reading', () => {
+  it('shows a stable unread count and restores the original title after reading', () => {
     const stop = watchBrowserTabNotices(snapshot, memberId);
     const first = makeNotice('first', firstItem.id);
     const second = makeNotice('second', secondItem.id);
 
     notificationService.dispatchNotices([first, second]);
-    expect(document.title).toBe(`Notice (1) - ${firstStack}`);
-
-    vi.advanceTimersByTime(3000);
-    expect(document.title).toBe(`Notice (2) - ${secondStack}`);
-    vi.advanceTimersByTime(3000);
-    expect(document.title).toBe(`Notice (1) - ${firstStack}`);
+    expect(document.title).toBe(`(2) StackFlow — ${firstStack}`);
 
     notificationService.markNoticeRead(first.id, snapshot.workspace.id, memberId);
-    expect(document.title).toBe(`Notice (1) - ${secondStack}`);
+    expect(document.title).toBe(`(1) StackFlow — ${secondStack}`);
     notificationService.markAllRead(snapshot.workspace.id, memberId);
     expect(document.title).toBe(BASE_TITLE);
 
     stop();
-    expect(vi.getTimerCount()).toBe(0);
   });
 
   it('restores the tab title when the active workspace is closed', () => {
     notificationService.dispatchNotices([makeNotice('first', firstItem.id)]);
     const stop = watchBrowserTabNotices(snapshot, memberId);
-    expect(document.title).toBe(`Notice (1) - ${firstStack}`);
+    expect(document.title).toBe(`(1) StackFlow — ${firstStack}`);
     stop();
     expect(document.title).toBe(BASE_TITLE);
   });

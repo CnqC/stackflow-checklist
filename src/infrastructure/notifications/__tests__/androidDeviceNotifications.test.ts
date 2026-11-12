@@ -14,6 +14,7 @@ vi.mock('@capacitor/local-notifications', () => ({
     requestPermissions: vi.fn(async () => ({ display: 'granted' })),
     createChannel: vi.fn(async () => {}),
     schedule: vi.fn(async () => ({ notifications: [] })),
+    addListener: vi.fn(async () => ({ remove: vi.fn() })),
   },
 }));
 
@@ -46,16 +47,29 @@ describe('Android device notifications', () => {
 
     await vi.waitFor(() => expect(LocalNotifications.schedule).toHaveBeenCalledTimes(1));
     expect(LocalNotifications.createChannel).toHaveBeenCalledWith(
-      expect.objectContaining({ id: 'stackflow_assignments', importance: 4, vibration: true }),
+      expect.objectContaining({ id: 'stackflow_assignments_v2', importance: 3, vibration: true }),
     );
     expect(LocalNotifications.schedule).toHaveBeenCalledWith({
       notifications: [expect.objectContaining({
         id: hashNoticeIdToInt32(notice.id),
-        channelId: 'stackflow_assignments',
-        foreground: true,
+        channelId: 'stackflow_assignments_v2',
+        foreground: false,
         extra: expect.objectContaining({ noticeId: notice.id, taskId: notice.taskId }),
       })],
     });
     expect(service.getUnreadCount(snapshot.workspace.id, snapshot.members[1]!.id)).toBe(1);
+  });
+
+  it('routes a tapped Android notification back to its inbox item', () => {
+    const service = new NotificationService();
+    const opened: string[] = [];
+    const stop = service.subscribeNoticeOpens((id) => opened.push(id));
+    const callback = vi.mocked(LocalNotifications.addListener).mock.calls[0]?.[1];
+    expect(callback).toBeDefined();
+    if (callback) {
+      callback({ notification: { extra: { noticeId: 'android-assignment-1' } } } as Parameters<typeof callback>[0]);
+    }
+    expect(opened).toEqual(['android-assignment-1']);
+    stop();
   });
 });
