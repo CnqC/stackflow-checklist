@@ -206,13 +206,13 @@ export const NotificationBell: React.FC<NotificationBellProps> = ({
                   <span>Đánh dấu đã đọc hết</span>
                 </button>
               )}
-              <button type="button" onClick={() => setSettingsOpen((value) => !value)}
+              {!isNativeNotificationPlatform() && <button type="button" onClick={() => setSettingsOpen((value) => !value)}
                 aria-label={settingsOpen ? 'Quay lại hộp thông báo' : 'Mở cài đặt thông báo'}
                 aria-pressed={settingsOpen}
                 title={settingsOpen ? 'Quay lại hộp thông báo' : 'Cài đặt thông báo'}
                 className={`p-1.5 rounded-lg cursor-pointer ${settingsOpen ? 'text-indigo-300 bg-indigo-500/20' : 'text-slate-400 hover:text-white hover:bg-slate-800'}`}>
                 <Settings2 className="w-4 h-4" />
-              </button>
+              </button>}
               <button
                 type="button"
                 onClick={() => setOpen(false)}
