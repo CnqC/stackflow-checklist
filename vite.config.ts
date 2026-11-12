@@ -11,7 +11,10 @@ export default defineConfig({
     VitePWA({
       registerType: 'autoUpdate',
       includeAssets: ['icon.svg'],
-      workbox: { importScripts: ['notification-click.js'] },
+      workbox: {
+        importScripts: ['notification-click.js'],
+        globPatterns: ['**/*.{js,css,html,ico,png,svg,webmanifest,wav}'],
+      },
       manifest: {
         name: 'StackFlow — Checklist Dự Án Nhóm',
         short_name: 'StackFlow',

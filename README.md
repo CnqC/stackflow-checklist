@@ -21,6 +21,7 @@
     - Hộp chuông tách thông báo chưa đọc/đã đọc, có nút tắt riêng báo trên thiết bị và chỉ xóa lịch sử đã đọc. Khi mở lại app, hệ thống đối chiếu mốc công việc đã lưu trên thiết bị này để tìm việc mới.
     - Thông báo khi app/trang Web đã đóng cần cấu hình Supabase, Firebase và Web Push theo [`PUSH_SETUP.md`](./PUSH_SETUP.md). Khi chưa cấu hình, app sẽ báo rõ trong hộp chuông và cập nhật việc mới lúc mở lại.
     - Quy tắc kỹ thuật và giới hạn được ghi tại [`NOTIFICATIONS.md`](./NOTIFICATIONS.md).
+    - Bấm **chuông → bánh răng Cài đặt** để bật/tắt âm khi web đang mở, chọn một trong 10 âm báo, nghe thử, chỉnh âm lượng và bật/tắt số việc trên tab. Âm riêng chỉ phát khi trang đang hiển thị và trình duyệt cho phép; khi trang đã đóng, âm thông báo do trình duyệt/điện thoại quyết định.
   - Đổi trạng thái (`Cần làm`, `Đang làm`, `Đang kẹt`, `Hoàn thành`), mức ưu tiên, hạn chót (`Deadline`), ghi chú và **Link đính kèm** (GitHub, Figma, Notion, Drive...).
   - Bộ lọc nhanh **`Việc của tôi`** (tự động gom cả việc chính lẫn phần việc nhỏ bạn được giao), tìm kiếm tức thì và **Nhật ký hoạt động trực tiếp**.
 - **Kiến trúc Đồng bộ Kép (`Dual-Engine Realtime Sync`)**:
@@ -30,6 +31,8 @@
 ---
 
 ## 1. Chạy trên máy (Web Development)
+
+Quy trình ghi yêu cầu và kiến trúc dùng [Spec Kit](https://github.com/github/spec-kit): `.specify/`, `specs/` và các skill `$speckit-*` trong `.agents/skills/`. CLI đã được cài từ GitHub tag `v1.0.6` với Codex và script PowerShell; chạy `specify version` để kiểm tra.
 
 ```bash
 npm install

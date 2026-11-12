@@ -6,6 +6,7 @@ import {
 } from '../../core/domain/notificationDiffEngine';
 import { resolveNoticeStackTitle } from '../../core/domain/noticePresentation';
 import { domainEventBus } from '../../core/events/domainEventBus';
+import { notificationSoundService } from './notificationSoundService';
 import type { AppNotice, WorkspaceSnapshot } from '../../types/models';
 
 export type NotificationPermissionState = 'granted' | 'denied' | 'default' | 'unsupported';
@@ -626,8 +627,14 @@ export class NotificationService {
     this.notifySubscribers();
 
     if (options.deviceAlert !== false) {
+      const soundedScopes = new Set<string>();
       for (const notice of newlyAccepted) {
-        if (this.remotePushScopes.has(makeScopeKey(notice.workspaceId, notice.targetMemberId))) continue;
+        const scope = makeScopeKey(notice.workspaceId, notice.targetMemberId);
+        if (!notice.read && !isNativeNotificationPlatform() && !soundedScopes.has(scope)) {
+          notificationSoundService.playForNotice(notice.workspaceId, notice.targetMemberId);
+          soundedScopes.add(scope);
+        }
+        if (this.remotePushScopes.has(scope)) continue;
         const stackTitle = options.snapshot
           ? resolveNoticeStackTitle(notice, options.snapshot)
           : null;

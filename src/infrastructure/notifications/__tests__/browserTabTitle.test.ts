@@ -3,6 +3,7 @@ import { createSeedWorkspaceSnapshot } from '../../../core/domain/stackDomain';
 import type { AppNotice } from '../../../types/models';
 import { getUnreadNoticeTabTitle, watchBrowserTabNotices } from '../browserTabTitle';
 import { notificationService } from '../notificationService';
+import { notificationPreferencesStore } from '../notificationPreferencesStore';
 
 const BASE_TITLE = 'StackFlow — Checklist Nhóm Dự Án';
 
@@ -64,5 +65,14 @@ describe('Browser tab assignment notices', () => {
     expect(document.title).toBe(`(1) StackFlow — ${firstStack}`);
     stop();
     expect(document.title).toBe(BASE_TITLE);
+  });
+
+  it('hides the tab count without removing inbox notices', () => {
+    const stop = watchBrowserTabNotices(snapshot, memberId);
+    notificationService.dispatchNotices([makeNotice('first', firstItem.id)]);
+    notificationPreferencesStore.update(snapshot.workspace.id, memberId, { tabBadgeEnabled: false });
+    expect(document.title).toBe(BASE_TITLE);
+    expect(notificationService.getUnreadCount(snapshot.workspace.id, memberId)).toBe(1);
+    stop();
   });
 });

@@ -1,5 +1,6 @@
 import React, { useEffect, useId, useRef, useState } from 'react';
-import { Bell, BellRing, Check, CheckCheck, Sparkles, Trash2, X } from 'lucide-react';
+import { Bell, BellRing, Check, CheckCheck, Settings2, Sparkles, Trash2, X } from 'lucide-react';
+import { NotificationSettings } from './NotificationSettings';
 import { resolveNoticeStackTitle } from '../core/domain/noticePresentation';
 import { pushRegistrationService } from '../infrastructure/notifications/pushRegistrationService';
 import {
@@ -42,6 +43,7 @@ export const NotificationBell: React.FC<NotificationBellProps> = ({
 }) => {
   const workspaceId = snapshot.workspace.id;
   const [open, setOpen] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
   const [notices, setNotices] = useState<AppNotice[]>(() =>
     notificationService.getNotices(workspaceId, memberId),
   );
@@ -71,7 +73,10 @@ export const NotificationBell: React.FC<NotificationBellProps> = ({
     return unsub;
   }, [workspaceId, memberId]);
 
-  useEffect(() => notificationService.subscribeNoticeOpens(() => setOpen(false)), []);
+  useEffect(() => notificationService.subscribeNoticeOpens(() => {
+    setOpen(false);
+    setSettingsOpen(false);
+  }), []);
 
   useEffect(() => pushRegistrationService.subscribeStatus(() => {
     setRemotePushActive(pushRegistrationService.isActiveFor(workspaceId, memberId));
@@ -132,7 +137,10 @@ export const NotificationBell: React.FC<NotificationBellProps> = ({
     <div ref={containerRef} className="relative">
       <button
         type="button"
-        onClick={() => setOpen((prev) => !prev)}
+        onClick={() => {
+          setOpen((prev) => !prev);
+          setSettingsOpen(false);
+        }}
         aria-expanded={open}
         aria-controls={open ? panelId : undefined}
         aria-label={
@@ -167,27 +175,27 @@ export const NotificationBell: React.FC<NotificationBellProps> = ({
       </button>
 
       {open && (
-        <div id={panelId} className="fixed inset-x-3 top-16 sm:absolute sm:inset-x-auto sm:right-0 sm:top-full sm:mt-2 sm:w-96 z-50 rounded-2xl bg-slate-900 border border-slate-700/90 shadow-2xl shadow-black/60 overflow-hidden">
+        <div id={panelId} className="fixed inset-x-3 top-16 sm:absolute sm:inset-x-auto sm:right-0 sm:top-full sm:mt-2 sm:w-96 z-50 max-h-[calc(100dvh-5rem)] flex flex-col rounded-2xl bg-slate-900 border border-slate-700/90 shadow-2xl shadow-black/60 overflow-hidden">
           {/* Header */}
           <div className="px-4 py-3 bg-slate-950/90 border-b border-slate-800 flex items-center justify-between gap-2">
             <div>
               <div className="flex items-center gap-1.5">
                 <span className="text-xs font-bold text-white">
-                  Hộp báo việc của {memberName || 'bạn'}
+                  {settingsOpen ? 'Cài đặt thông báo' : `Hộp báo việc của ${memberName || 'bạn'}`}
                 </span>
-                {unreadCount > 0 && (
+                {!settingsOpen && unreadCount > 0 && (
                   <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-rose-500/20 text-rose-300 border border-rose-500/30">
                     {unreadCount} mới
                   </span>
                 )}
               </div>
               <p className="text-[11px] text-slate-400 mt-0.5">
-                Bấm vào dòng thông báo để mở thẳng đầu việc đó
+                {settingsOpen ? 'Chọn cách bạn muốn nhận báo việc' : 'Bấm vào dòng thông báo để mở thẳng đầu việc đó'}
               </p>
             </div>
 
             <div className="flex items-center gap-1">
-              {unreadCount > 0 && (
+              {!settingsOpen && unreadCount > 0 && (
                 <button
                   type="button"
                   onClick={handleMarkAllRead}
@@ -198,6 +206,13 @@ export const NotificationBell: React.FC<NotificationBellProps> = ({
                   <span>Đánh dấu đã đọc hết</span>
                 </button>
               )}
+              <button type="button" onClick={() => setSettingsOpen((value) => !value)}
+                aria-label={settingsOpen ? 'Quay lại hộp thông báo' : 'Mở cài đặt thông báo'}
+                aria-pressed={settingsOpen}
+                title={settingsOpen ? 'Quay lại hộp thông báo' : 'Cài đặt thông báo'}
+                className={`p-1.5 rounded-lg cursor-pointer ${settingsOpen ? 'text-indigo-300 bg-indigo-500/20' : 'text-slate-400 hover:text-white hover:bg-slate-800'}`}>
+                <Settings2 className="w-4 h-4" />
+              </button>
               <button
                 type="button"
                 onClick={() => setOpen(false)}
@@ -270,6 +285,7 @@ export const NotificationBell: React.FC<NotificationBellProps> = ({
             )}
           </div>
 
+          {settingsOpen ? <NotificationSettings workspaceId={workspaceId} memberId={memberId} /> : <>
           {/* Notice List */}
           <div className="max-h-80 overflow-y-auto divide-y divide-slate-800/70">
             {notices.length === 0 ? (
@@ -369,6 +385,7 @@ export const NotificationBell: React.FC<NotificationBellProps> = ({
               </button>}
             </div>
           )}
+          </>}
         </div>
       )}
     </div>

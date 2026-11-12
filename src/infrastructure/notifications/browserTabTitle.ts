@@ -1,6 +1,7 @@
 import { resolveNoticeStackTitle } from '../../core/domain/noticePresentation';
 import type { AppNotice, WorkspaceSnapshot } from '../../types/models';
 import { notificationService, isNativeNotificationPlatform } from './notificationService';
+import { notificationPreferencesStore } from './notificationPreferencesStore';
 
 const DEFAULT_TITLE = typeof document === 'undefined' || !document.title
   ? 'StackFlow — Checklist Nhóm Dự Án'
@@ -33,14 +34,19 @@ export function watchBrowserTabNotices(
     const notices = snapshot && memberId
       ? notificationService.getNotices(snapshot.workspace.id, memberId)
       : [];
-    document.title = getUnreadNoticeTabTitle(notices, snapshot, memberId) ?? DEFAULT_TITLE;
+    const showBadge = snapshot && memberId
+      ? notificationPreferencesStore.get(snapshot.workspace.id, memberId).tabBadgeEnabled
+      : false;
+    document.title = (showBadge ? getUnreadNoticeTabTitle(notices, snapshot, memberId) : null) ?? DEFAULT_TITLE;
   };
 
   const unsubscribe = notificationService.subscribeNotices(refresh);
+  const unsubscribePreferences = notificationPreferencesStore.subscribe(refresh);
   refresh();
 
   return () => {
     unsubscribe();
+    unsubscribePreferences();
     document.title = DEFAULT_TITLE;
   };
 }
