@@ -1,3 +1,4 @@
+import { Capacitor } from '@capacitor/core';
 import { LocalNotifications } from '@capacitor/local-notifications';
 import { domainEventBus } from '../../core/events/domainEventBus';
 import type { AppNotice } from '../../types/models';
@@ -16,20 +17,12 @@ interface PersistedNoticeStore {
   dispatchedNoticeIds: string[];
 }
 
-interface CapacitorBridgeWindow {
-  Capacitor?: {
-    isNativePlatform?: () => boolean;
-  };
-}
-
 function makeScopeKey(workspaceId: string, memberId: string): string {
   return `${workspaceId.trim()}::${memberId.trim()}`;
 }
 
 export function isNativeNotificationPlatform(): boolean {
-  if (typeof window === 'undefined') return false;
-  const cap = (window as unknown as CapacitorBridgeWindow).Capacitor;
-  return Boolean(cap?.isNativePlatform?.());
+  return typeof window !== 'undefined' && Capacitor.isNativePlatform();
 }
 
 /**

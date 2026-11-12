@@ -29,6 +29,7 @@ import {
   isMemberInvolvedInItem,
   STACK_PALETTE,
 } from './domain/stackDomain';
+import { watchBrowserTabNotices } from './infrastructure/notifications/browserTabTitle';
 import { syncService } from './services/syncService';
 import {
   MAX_TEAM_MEMBERS,
@@ -157,6 +158,10 @@ export function App() {
       setCurrentMember(updatedMe);
     }
   }, [snapshot, currentMember]);
+
+  useEffect(() => {
+    return watchBrowserTabNotices(snapshot, currentMember?.id ?? null);
+  }, [snapshot, currentMember?.id]);
 
   const persistSession = (roomCode: string, pinCode: string, memberId?: string) => {
     const payload: SavedSession = { roomCode, pinCode, memberId };
