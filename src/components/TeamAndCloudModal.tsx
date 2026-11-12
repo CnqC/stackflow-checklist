@@ -16,6 +16,7 @@ import {
 import schemaSqlRaw from '../../supabase/schema.sql?raw';
 import { canAddMember } from '../domain/stackDomain';
 import {
+  getBundledSupabaseConfig,
   getSupabaseConfig,
   saveSupabaseConfig,
   verifySupabaseConnection,
@@ -64,7 +65,7 @@ export const TeamAndCloudModal: React.FC<TeamAndCloudModalProps> = ({
   deferredInstallPrompt,
   onTriggerInstallPwa,
 }) => {
-  const existingCfg = getSupabaseConfig();
+  const existingCfg = getSupabaseConfig() ?? getBundledSupabaseConfig();
   const [tab, setTab] = useState<'team' | 'cloud' | 'app'>(initialTab);
 
   const [sbUrl, setSbUrl] = useState(existingCfg?.url ?? '');
@@ -125,8 +126,9 @@ export const TeamAndCloudModal: React.FC<TeamAndCloudModalProps> = ({
 
   const handleDisconnectSupabase = () => {
     saveSupabaseConfig(null);
-    setSbUrl('');
-    setSbKey('');
+    const bundledCfg = getBundledSupabaseConfig();
+    setSbUrl(bundledCfg?.url ?? '');
+    setSbKey(bundledCfg?.anonKey ?? '');
     onCloudConfigChanged();
     setStatusMsg({
       type: 'ok',

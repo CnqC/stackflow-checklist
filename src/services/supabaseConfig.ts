@@ -6,15 +6,21 @@ const STORAGE_KEY = 'stackflow_supabase_runtime_config_v1';
 let cachedClient: SupabaseClient | null = null;
 let cachedConfigSignature = '';
 
-export function getSupabaseConfig(): SupabaseRuntimeConfig | null {
+export function getBundledSupabaseConfig(): SupabaseRuntimeConfig | null {
   const envUrl = (import.meta.env.VITE_SUPABASE_URL as string | undefined)?.trim() ?? '';
   const envKey = (import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined)?.trim() ?? '';
+
+  return envUrl && envKey ? { url: envUrl, anonKey: envKey } : null;
+}
+
+export function getSupabaseConfig(): SupabaseRuntimeConfig | null {
 
   if (typeof window !== 'undefined') {
     try {
       const raw = window.localStorage.getItem(STORAGE_KEY);
       if (raw) {
-        const parsed = JSON.parse(raw) as Partial<SupabaseRuntimeConfig>;
+        const parsed = JSON.parse(raw) as Partial<SupabaseRuntimeConfig> & { disabled?: boolean };
+        if (parsed.disabled === true) return null;
         if (parsed.url?.trim() && parsed.anonKey?.trim()) {
           return {
             url: parsed.url.trim(),
@@ -27,11 +33,7 @@ export function getSupabaseConfig(): SupabaseRuntimeConfig | null {
     }
   }
 
-  if (envUrl && envKey) {
-    return { url: envUrl, anonKey: envKey };
-  }
-
-  return null;
+  return getBundledSupabaseConfig();
 }
 
 export function saveSupabaseConfig(config: SupabaseRuntimeConfig | null): void {
@@ -39,7 +41,7 @@ export function saveSupabaseConfig(config: SupabaseRuntimeConfig | null): void {
   cachedConfigSignature = '';
   if (typeof window === 'undefined') return;
   if (!config || !config.url.trim() || !config.anonKey.trim()) {
-    window.localStorage.removeItem(STORAGE_KEY);
+    window.localStorage.setItem(STORAGE_KEY, JSON.stringify({ disabled: true }));
     return;
   }
   window.localStorage.setItem(
