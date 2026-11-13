@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from 'react';
-import { ArrowLeft, Check, CheckSquare2, ChevronDown, ChevronRight, ChevronUp, ExternalLink, Filter, Layers, Link2, Lock, PanelLeftClose, PanelLeftOpen, PanelRightClose, PanelRightOpen, Pencil, Plus, Search, Settings2, Trash2, Unlock, UserCheck, Users, X } from 'lucide-react';
+import { Activity, ArrowLeft, Check, CheckSquare2, ChevronDown, ChevronRight, ChevronUp, ExternalLink, Filter, Layers, Link2, Lock, PanelLeftClose, PanelLeftOpen, PanelRightClose, PanelRightOpen, Pencil, Plus, Search, Settings2, Trash2, Unlock, UserCheck, Users, X } from 'lucide-react';
 import {
   canManageTask,
   canToggleSubtask,
@@ -273,6 +273,7 @@ export function ProjectWorkspace({ projectId, identity, onBack, onSettings }: Pr
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [showTeam, setShowTeam] = useState(false);
+  const [showMobileActivity, setShowMobileActivity] = useState(false);
   const [inviteEmail, setInviteEmail] = useState('');
   const [newStack, setNewStack] = useState('');
   const [newStackDescription, setNewStackDescription] = useState('');
@@ -433,8 +434,8 @@ export function ProjectWorkspace({ projectId, identity, onBack, onSettings }: Pr
   }).sort((a, b) => a.position - b.position || a.created_at.localeCompare(b.created_at) || a.id.localeCompare(b.id));
   const gridColumns = leftSidebarOpen
     ? rightSidebarOpen
-      ? 'lg:grid-cols-[19rem_minmax(0,1fr)] xl:grid-cols-[19rem_minmax(0,1fr)_20rem]'
-      : 'lg:grid-cols-[19rem_minmax(0,1fr)] xl:grid-cols-[19rem_minmax(0,1fr)_3.5rem]'
+      ? 'lg:grid-cols-[18rem_minmax(0,1fr)] xl:grid-cols-[20rem_minmax(0,1fr)_20rem]'
+      : 'lg:grid-cols-[18rem_minmax(0,1fr)] xl:grid-cols-[20rem_minmax(0,1fr)_3.5rem]'
     : rightSidebarOpen
       ? 'lg:grid-cols-[3.5rem_minmax(0,1fr)] xl:grid-cols-[3.5rem_minmax(0,1fr)_20rem]'
       : 'lg:grid-cols-[3.5rem_minmax(0,1fr)] xl:grid-cols-[3.5rem_minmax(0,1fr)_3.5rem]';
@@ -451,9 +452,13 @@ export function ProjectWorkspace({ projectId, identity, onBack, onSettings }: Pr
         <div className="mt-4 grid grid-cols-3 gap-2 text-center text-[11px]"><div className="rounded-lg bg-slate-950 p-2"><span className="block font-bold text-emerald-400">{completedCount}</span>Đã xong</div><div className="rounded-lg bg-slate-950 p-2"><span className="block font-bold text-sky-400">{data.tasks.filter((task) => task.status === 'doing').length}</span>Đang làm</div><div className="rounded-lg bg-slate-950 p-2"><span className="block font-bold text-rose-400">{data.tasks.filter((task) => task.status === 'blocked').length}</span>Đang kẹt</div></div>
       </section>
       <p className="mt-7 text-xs font-semibold uppercase tracking-wider text-slate-400">Các tầng Stack ({stacks.length})</p>
-      <nav className="mt-2 space-y-1">{stacks.map((stack) => <button key={stack.id} type="button" onClick={() => document.getElementById(`stack-${stack.id}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' })} className="flex w-full items-center gap-2 rounded-lg border border-slate-800 bg-slate-900/70 px-3 py-2 text-left text-xs text-slate-200 hover:border-indigo-500"><span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ backgroundColor: stack.color }} /><span className="min-w-0 flex-1 truncate">{stack.title}</span><span className="text-slate-500">{data.tasks.filter((task) => task.stack_id === stack.id).length}</span></button>)}</nav>
+      <nav className="mt-2 space-y-1">{stacks.map((stack) => {
+        const tasks = data.tasks.filter((task) => task.stack_id === stack.id);
+        const percentage = tasks.length ? Math.round(tasks.filter((task) => task.completed).length / tasks.length * 100) : 0;
+        return <button key={stack.id} type="button" onClick={() => document.getElementById(`stack-${stack.id}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' })} className="flex w-full items-center gap-2 rounded-xl border border-slate-800 bg-slate-900/70 px-3 py-2 text-left text-xs text-slate-200 hover:border-indigo-500"><span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ backgroundColor: stack.color }} /><span className="min-w-0 flex-1 truncate">{stack.title}</span><span className="text-[11px] font-mono text-slate-500">{percentage}%</span></button>;
+      })}</nav>
       <p className="mt-7 text-xs font-semibold uppercase tracking-wider text-slate-400">Thành viên ({data.members.filter((member) => member.active).length}/20)</p>
-      <div className="mt-2 space-y-2">{data.members.filter((member) => member.active).map((member) => <button type="button" key={member.id} aria-pressed={memberFilterId === member.id} onClick={() => setMemberFilterId((current) => current === member.id ? null : member.id)} className={`flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left text-xs ${memberFilterId === member.id ? 'bg-indigo-500/20 text-indigo-100' : 'text-slate-300 hover:bg-slate-900'}`}><span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-indigo-600 text-[10px] font-bold text-white">{member.display_name.slice(0, 2).toUpperCase()}</span><span className="min-w-0 flex-1 truncate">{member.display_name}{member.user_id === identity.id ? ' (Bạn)' : ''}</span><span className="text-slate-500">{data.assignees.filter((entry) => entry.member_id === member.id && data.tasks.some((task) => task.id === entry.task_id && !task.completed)).length}</span></button>)}</div>
+      <div className="mt-2 space-y-1">{data.members.filter((member) => member.active).map((member) => <button type="button" key={member.id} aria-pressed={memberFilterId === member.id} onClick={() => setMemberFilterId((current) => current === member.id ? null : member.id)} className={`flex w-full items-center gap-2.5 rounded-xl px-2.5 py-2 text-left text-xs ${memberFilterId === member.id ? 'bg-indigo-500/20 text-indigo-100' : 'text-slate-300 hover:bg-slate-900'}`}><span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-indigo-600 text-[10px] font-bold text-white">{member.display_name.slice(0, 2).toUpperCase()}</span><span className="min-w-0 flex-1"><span className="block truncate font-semibold">{member.display_name}{member.user_id === identity.id ? ' (Bạn)' : ''}</span><span className="block truncate text-[10px] text-slate-500">{member.job_title || (member.access_role === 'owner' ? 'Chủ dự án' : 'Thành viên')}</span></span><span className="rounded bg-slate-900 px-1.5 py-0.5 font-mono text-[11px] text-slate-500">{data.assignees.filter((entry) => entry.member_id === member.id && data.tasks.some((task) => task.id === entry.task_id && !task.completed)).length} việc</span></button>)}</div>
       <div className="mt-auto space-y-2 border-t border-slate-800 pt-4"><button type="button" onClick={onSettings} className="flex w-full items-center gap-2 rounded-lg border border-slate-800 bg-slate-900 px-3 py-2 text-xs text-slate-200 hover:bg-slate-800"><Settings2 className="h-4 w-4 text-indigo-300" />Cài đặt</button><button type="button" onClick={onBack} className="flex items-center gap-2 text-xs text-slate-400 hover:text-white"><ArrowLeft className="h-4 w-4" />Tất cả dự án</button></div>
       </>}
     </aside>
@@ -478,6 +483,7 @@ export function ProjectWorkspace({ projectId, identity, onBack, onSettings }: Pr
     {data.project.accessRole === 'global_admin' && <p className="mt-4 rounded-xl border border-indigo-500/40 bg-indigo-500/10 p-3 text-sm text-indigo-100">Chế độ theo dõi của admin. Bạn không ở danh sách thành viên và không thể tạo hoặc đánh dấu việc.</p>}
     {error && <p role="alert" className="mt-4 rounded-xl border border-red-500/40 bg-red-500/10 p-3 text-sm text-red-200">{error}</p>}
     {!online && <p role="status" className="mt-4 rounded-xl border border-amber-500/40 bg-amber-500/10 p-3 text-sm text-amber-200">Đang mất kết nối. Chưa thể lưu thay đổi vào dữ liệu nhóm; hãy kết nối Internet trước khi chỉnh sửa.</p>}
+    {showMobileActivity && <div className="mt-5 lg:hidden"><ActivityPanel activities={v2Snapshot.activities} /></div>}
 
     {showTeam && <section className="mt-5 rounded-2xl border border-slate-700 bg-slate-900 p-4">
       <h2 className="font-semibold text-foreground">Thành viên dự án</h2>
@@ -578,10 +584,11 @@ export function ProjectWorkspace({ projectId, identity, onBack, onSettings }: Pr
       <button type="button" onClick={() => setRightSidebarOpen((value) => !value)} aria-label={rightSidebarOpen ? 'Ẩn thanh nhật ký bên phải' : 'Mở thanh nhật ký bên phải'} title={rightSidebarOpen ? 'Ẩn thanh nhật ký bên phải' : 'Mở thanh nhật ký bên phải'} className={`mb-4 rounded-lg border border-slate-800 p-2 text-slate-400 hover:bg-slate-900 hover:text-foreground ${rightSidebarOpen ? '' : 'mx-auto block'}`}>{rightSidebarOpen ? <PanelRightClose className="h-4 w-4" /> : <PanelRightOpen className="h-4 w-4" />}</button>
       {rightSidebarOpen && <ActivityPanel activities={v2Snapshot.activities} />}
     </aside>
-    <nav className="fixed inset-x-0 bottom-0 z-40 grid grid-cols-3 border-t border-slate-800 bg-slate-950/95 px-2 pb-2 pt-2 backdrop-blur lg:hidden" aria-label="Điều hướng dự án">
-      <button type="button" onClick={() => { setFilter('all'); setShowTeam(false); }} className={`flex flex-col items-center gap-1 text-[11px] ${filter === 'all' && !showTeam ? 'text-indigo-300' : 'text-slate-400'}`}><CheckSquare2 className="h-5 w-5" />Checklist</button>
-      <button type="button" onClick={() => { setFilter('mine'); setShowTeam(false); }} className={`flex flex-col items-center gap-1 text-[11px] ${filter === 'mine' && !showTeam ? 'text-indigo-300' : 'text-slate-400'}`}><UserCheck className="h-5 w-5" />Của tôi ({mineCount})</button>
-      <button type="button" onClick={() => setShowTeam(true)} className={`flex flex-col items-center gap-1 text-[11px] ${showTeam ? 'text-indigo-300' : 'text-slate-400'}`}><Users className="h-5 w-5" />Nhóm</button>
+    <nav className="fixed inset-x-0 bottom-0 z-40 grid grid-cols-4 border-t border-slate-800 bg-slate-950/95 px-2 pb-2 pt-2 backdrop-blur lg:hidden" aria-label="Điều hướng dự án">
+      <button type="button" onClick={() => { setFilter('all'); setShowTeam(false); setShowMobileActivity(false); }} className={`flex flex-col items-center gap-1 text-[11px] ${filter === 'all' && !showTeam && !showMobileActivity ? 'text-indigo-300' : 'text-slate-400'}`}><CheckSquare2 className="h-5 w-5" />Checklist</button>
+      <button type="button" onClick={() => { setFilter('mine'); setShowTeam(false); setShowMobileActivity(false); }} className={`flex flex-col items-center gap-1 text-[11px] ${filter === 'mine' && !showTeam && !showMobileActivity ? 'text-indigo-300' : 'text-slate-400'}`}><UserCheck className="h-5 w-5" />Của tôi ({mineCount})</button>
+      <button type="button" onClick={() => { setShowMobileActivity((value) => !value); setShowTeam(false); }} className={`flex flex-col items-center gap-1 text-[11px] ${showMobileActivity ? 'text-indigo-300' : 'text-slate-400'}`}><Activity className="h-5 w-5" />Hoạt động</button>
+      <button type="button" onClick={() => { setShowTeam(true); setShowMobileActivity(false); }} className={`flex flex-col items-center gap-1 text-[11px] ${showTeam ? 'text-indigo-300' : 'text-slate-400'}`}><Users className="h-5 w-5" />Nhóm</button>
     </nav>
   </main>;
 }
