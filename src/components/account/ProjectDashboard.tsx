@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState, type FormEvent } from 'react';
-import { FolderPlus, LogOut, Settings2, Users } from 'lucide-react';
+import { FolderPlus, Layers, LogOut, Settings2, Users } from 'lucide-react';
 import type { AccountProject } from '../../core/domain/accountProject';
 import type { AccountIdentity } from '../../infrastructure/auth/accountAuthService';
 import {
@@ -92,11 +92,11 @@ export function ProjectDashboard({ identity, onOpen, onSignOut, onSettings }: Pr
 
   return <main className="mx-auto min-h-dvh max-w-5xl px-4 py-6 sm:px-7 sm:py-9">
     <header className="flex flex-wrap items-center justify-between gap-4">
-      <div>
+      <div className="flex items-center gap-3"><span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-indigo-500 to-sky-500 text-white shadow-lg shadow-indigo-500/20"><Layers className="h-5 w-5" /></span><div>
         <p className="text-xs font-semibold uppercase tracking-[.18em] text-indigo-300">StackFlow</p>
         <h1 className="mt-1 text-2xl font-bold text-foreground">Dự án của bạn</h1>
         <p className="mt-1 text-sm text-slate-400">{identity.name} · {identity.email}</p>
-      </div>
+      </div></div>
       <div className="flex gap-2">
         <button type="button" onClick={onSettings} aria-label="Cài đặt" className="rounded-xl border border-slate-700 p-3 text-slate-200 hover:bg-slate-800"><Settings2 className="h-5 w-5" /></button>
         <button type="button" onClick={onSignOut} className="inline-flex items-center gap-2 rounded-xl border border-slate-700 px-3 py-2 text-sm text-slate-200 hover:bg-slate-800"><LogOut className="h-4 w-4" />Đăng xuất</button>

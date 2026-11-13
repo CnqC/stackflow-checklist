@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from 'react';
-import { Activity, ArrowLeft, Check, CheckSquare2, ChevronDown, ChevronRight, ChevronUp, ExternalLink, Filter, Link2, Lock, Pencil, Plus, Search, Settings2, Trash2, Unlock, UserCheck, Users, X } from 'lucide-react';
+import { ArrowLeft, Check, CheckSquare2, ChevronDown, ChevronRight, ChevronUp, ExternalLink, Filter, Layers, Link2, Lock, PanelLeftClose, PanelLeftOpen, PanelRightClose, PanelRightOpen, Pencil, Plus, Search, Settings2, Trash2, Unlock, UserCheck, Users, X } from 'lucide-react';
 import {
   canManageTask,
   canToggleSubtask,
@@ -24,6 +24,16 @@ interface Props {
 }
 
 type TaskFilter = 'all' | 'mine' | 'incomplete' | 'doing' | 'blocked' | 'done';
+
+const SIDEBAR_STORAGE_KEY = 'stackflow_v3_sidebars';
+
+function readSidebarState(): { left: boolean; right: boolean } {
+  if (typeof window === 'undefined') return { left: true, right: true };
+  try {
+    const value = JSON.parse(window.localStorage.getItem(SIDEBAR_STORAGE_KEY) ?? '{}') as { left?: boolean; right?: boolean };
+    return { left: value.left !== false, right: value.right !== false };
+  } catch { return { left: true, right: true }; }
+}
 
 function errorMessage(cause: unknown): string {
   return cause instanceof Error ? cause.message : String(cause);
@@ -258,7 +268,6 @@ export function ProjectWorkspace({ projectId, identity, onBack, onSettings }: Pr
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [showTeam, setShowTeam] = useState(false);
-  const [showActivity, setShowActivity] = useState(false);
   const [inviteEmail, setInviteEmail] = useState('');
   const [newStack, setNewStack] = useState('');
   const [projectName, setProjectName] = useState('');
@@ -267,7 +276,15 @@ export function ProjectWorkspace({ projectId, identity, onBack, onSettings }: Pr
   const [filter, setFilter] = useState<TaskFilter>('all');
   const [memberFilterId, setMemberFilterId] = useState<string | null>(null);
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
+  const [leftSidebarOpen, setLeftSidebarOpen] = useState(() => readSidebarState().left);
+  const [rightSidebarOpen, setRightSidebarOpen] = useState(() => readSidebarState().right);
+  const [showAddStack, setShowAddStack] = useState(false);
   const [online, setOnline] = useState(() => typeof navigator === 'undefined' || navigator.onLine);
+
+  useEffect(() => {
+    try { window.localStorage.setItem(SIDEBAR_STORAGE_KEY, JSON.stringify({ left: leftSidebarOpen, right: rightSidebarOpen })); }
+    catch { /* Keep the choice for this session when storage is unavailable. */ }
+  }, [leftSidebarOpen, rightSidebarOpen]);
 
   const refresh = useCallback(async () => {
     const next = await accountProjectRepository.loadProject(projectId);
@@ -336,7 +353,7 @@ export function ProjectWorkspace({ projectId, identity, onBack, onSettings }: Pr
   async function addStack(event: FormEvent) {
     event.preventDefault();
     const success = await mutate(() => accountProjectRepository.addStack(projectId, newStack.trim()));
-    if (success) setNewStack('');
+    if (success) { setNewStack(''); setShowAddStack(false); }
   }
 
   async function invite(event: FormEvent) {
@@ -379,9 +396,20 @@ export function ProjectWorkspace({ projectId, identity, onBack, onSettings }: Pr
     if (query && !`${task.title} ${task.notes} ${data.subtasks.filter((subtask) => subtask.task_id === task.id).map((subtask) => subtask.title).join(' ')}`.toLocaleLowerCase('vi').includes(query)) return false;
     return true;
   }).sort((a, b) => a.position - b.position || a.created_at.localeCompare(b.created_at) || a.id.localeCompare(b.id));
-  return <main className="min-h-dvh bg-slate-950 text-slate-100 lg:grid lg:grid-cols-[19rem_minmax(0,1fr)] xl:grid-cols-[19rem_minmax(0,1fr)_20rem]">
-    <aside className="hidden border-r border-slate-800 bg-slate-950/80 p-5 lg:flex lg:h-dvh lg:flex-col lg:overflow-y-auto lg:sticky lg:top-0">
-      <button type="button" onClick={onBack} className="text-left"><span className="text-[11px] font-semibold uppercase tracking-widest text-indigo-300">{data.project.code}</span><span className="mt-1 block font-bold text-foreground">{data.project.name}</span></button>
+  const gridColumns = leftSidebarOpen
+    ? rightSidebarOpen
+      ? 'lg:grid-cols-[19rem_minmax(0,1fr)] xl:grid-cols-[19rem_minmax(0,1fr)_20rem]'
+      : 'lg:grid-cols-[19rem_minmax(0,1fr)] xl:grid-cols-[19rem_minmax(0,1fr)_3.5rem]'
+    : rightSidebarOpen
+      ? 'lg:grid-cols-[3.5rem_minmax(0,1fr)] xl:grid-cols-[3.5rem_minmax(0,1fr)_20rem]'
+      : 'lg:grid-cols-[3.5rem_minmax(0,1fr)] xl:grid-cols-[3.5rem_minmax(0,1fr)_3.5rem]';
+  return <main className={`min-h-dvh bg-slate-950 text-slate-100 lg:grid ${gridColumns}`}>
+    <aside className={`hidden border-r border-slate-800 bg-slate-950/80 lg:sticky lg:top-0 lg:flex lg:h-dvh lg:flex-col lg:overflow-y-auto ${leftSidebarOpen ? 'p-5' : 'items-center p-2'}`}>
+      <div className={`flex items-start ${leftSidebarOpen ? 'justify-between gap-2' : 'flex-col items-center gap-3'}`}>
+        <button type="button" onClick={onBack} aria-label="Về danh sách dự án" className={`flex min-w-0 items-center gap-2.5 text-left ${leftSidebarOpen ? 'flex-1' : ''}`}><span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-indigo-500 to-sky-500 shadow-lg shadow-indigo-500/20"><Layers className="h-5 w-5 text-white" /></span>{leftSidebarOpen && <span className="min-w-0"><span className="block truncate text-[10px] font-semibold uppercase tracking-wider text-indigo-300">{data.project.code}</span><span className="mt-0.5 block truncate text-sm font-bold text-foreground">{data.project.name}</span></span>}</button>
+        <button type="button" onClick={() => setLeftSidebarOpen((value) => !value)} aria-label={leftSidebarOpen ? 'Ẩn thanh bên trái' : 'Mở thanh bên trái'} title={leftSidebarOpen ? 'Ẩn thanh bên trái' : 'Mở thanh bên trái'} className="rounded-lg border border-slate-800 p-2 text-slate-400 hover:bg-slate-900 hover:text-foreground">{leftSidebarOpen ? <PanelLeftClose className="h-4 w-4" /> : <PanelLeftOpen className="h-4 w-4" />}</button>
+      </div>
+      {leftSidebarOpen && <>
       <section className="mt-6 rounded-2xl border border-slate-800 bg-slate-900 p-4" aria-label="Tiến độ toàn dự án">
         <p className="text-xs text-slate-400">Tiến độ toàn dự án</p><div className="mt-1 flex items-end justify-between"><strong className="text-2xl text-white">{progress}%</strong><span className="text-xs text-slate-400">{completedCount}/{data.tasks.length} việc</span></div>
         <div className="mt-3 h-2 overflow-hidden rounded-full bg-slate-950"><div className="h-full rounded-full bg-gradient-to-r from-indigo-500 to-emerald-400" style={{ width: `${progress}%` }} /></div>
@@ -391,31 +419,30 @@ export function ProjectWorkspace({ projectId, identity, onBack, onSettings }: Pr
       <nav className="mt-2 space-y-1">{stacks.map((stack) => <button key={stack.id} type="button" onClick={() => document.getElementById(`stack-${stack.id}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' })} className="flex w-full items-center gap-2 rounded-lg border border-slate-800 bg-slate-900/70 px-3 py-2 text-left text-xs text-slate-200 hover:border-indigo-500"><span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ backgroundColor: stack.color }} /><span className="min-w-0 flex-1 truncate">{stack.title}</span><span className="text-slate-500">{data.tasks.filter((task) => task.stack_id === stack.id).length}</span></button>)}</nav>
       <p className="mt-7 text-xs font-semibold uppercase tracking-wider text-slate-400">Thành viên ({data.members.filter((member) => member.active).length}/20)</p>
       <div className="mt-2 space-y-2">{data.members.filter((member) => member.active).map((member) => <button type="button" key={member.id} aria-pressed={memberFilterId === member.id} onClick={() => setMemberFilterId((current) => current === member.id ? null : member.id)} className={`flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left text-xs ${memberFilterId === member.id ? 'bg-indigo-500/20 text-indigo-100' : 'text-slate-300 hover:bg-slate-900'}`}><span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-indigo-600 text-[10px] font-bold text-white">{member.display_name.slice(0, 2).toUpperCase()}</span><span className="min-w-0 flex-1 truncate">{member.display_name}{member.user_id === identity.id ? ' (Bạn)' : ''}</span><span className="text-slate-500">{data.assignees.filter((entry) => entry.member_id === member.id && data.tasks.some((task) => task.id === entry.task_id && !task.completed)).length}</span></button>)}</div>
-      <div className="mt-auto border-t border-slate-800 pt-4"><button type="button" onClick={onBack} className="flex items-center gap-2 text-xs text-slate-400 hover:text-white"><ArrowLeft className="h-4 w-4" />Tất cả dự án</button></div>
+      <div className="mt-auto space-y-2 border-t border-slate-800 pt-4"><button type="button" onClick={onSettings} className="flex w-full items-center gap-2 rounded-lg border border-slate-800 bg-slate-900 px-3 py-2 text-xs text-slate-200 hover:bg-slate-800"><Settings2 className="h-4 w-4 text-indigo-300" />Cài đặt</button><button type="button" onClick={onBack} className="flex items-center gap-2 text-xs text-slate-400 hover:text-white"><ArrowLeft className="h-4 w-4" />Tất cả dự án</button></div>
+      </>}
     </aside>
-    <div className="min-w-0 px-4 py-5 pb-24 sm:px-7 lg:mx-auto lg:w-full lg:max-w-5xl lg:pb-8">
-    <header className="flex flex-wrap items-center justify-between gap-3">
-      <div>
-        <button type="button" onClick={onBack} className="inline-flex items-center gap-1 text-xs text-slate-400 hover:text-foreground"><ArrowLeft className="h-4 w-4" />Tất cả dự án</button>
-        <p className="mt-2 text-xs font-semibold uppercase tracking-widest text-indigo-300">{data.project.code}</p>
-        <h1 className="text-2xl font-bold text-foreground">{data.project.name}</h1>
-      </div>
-      <div className="flex gap-2">
+    <div className="min-w-0 w-full px-4 py-5 pb-24 sm:px-6 lg:pb-8 xl:px-8">
+    <header className="sticky top-0 z-30 -mx-4 -mt-5 border-b border-slate-800 bg-slate-950/95 px-4 py-3 backdrop-blur sm:-mx-6 sm:px-6 xl:-mx-8 xl:px-8">
+      <div className="flex min-w-0 items-center gap-3">
+        <div className={`min-w-0 items-center gap-2.5 ${leftSidebarOpen ? 'flex lg:hidden' : 'flex'}`}>
+          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-indigo-500 to-sky-500 shadow-lg shadow-indigo-500/20"><Layers className="h-4.5 w-4.5 text-white" /></span>
+          <div className="min-w-0"><div className="flex items-center gap-1.5"><h1 className="max-w-28 truncate text-sm font-bold text-foreground sm:max-w-56">{data.project.name}</h1><span className="rounded-md bg-indigo-500/15 px-1.5 py-0.5 text-[10px] font-semibold text-indigo-300">{progress}%</span></div><p className="truncate text-[11px] text-slate-400">Mã: {data.project.code}</p></div>
+        </div>
+        <label className="relative hidden min-w-40 max-w-xl flex-1 lg:block"><Search className="absolute left-3 top-3 h-4 w-4 text-slate-500" /><span className="sr-only">Tìm kiếm đầu việc hoặc ghi chú</span><input value={searchQuery} onChange={(event) => setSearchQuery(event.target.value)} placeholder="Tìm kiếm đầu việc hoặc ghi chú..." className="h-10 w-full rounded-xl border border-slate-800 bg-slate-900 pl-9 pr-3 text-sm text-foreground focus:border-indigo-500 focus:outline-none" /></label>
+      <div className="ml-auto flex shrink-0 items-center gap-1.5 sm:gap-2">
         {actor && <AccountNoticeBell projectId={projectId} memberId={identity.id} notices={data.notices} onRead={(id) => void mutate(() => accountProjectRepository.markNoticeRead(id))} onOpenTask={(id) => void openTaskFromNotice(id)} />}
-        <button type="button" onClick={() => setShowActivity((value) => !value)} aria-expanded={showActivity} className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-slate-700 px-3 text-sm text-slate-200"><Activity className="h-4 w-4" /><span className="hidden sm:inline">Nhật ký</span></button>
-        <button type="button" onClick={() => { setProjectName(data.project.name); setProjectDescription(data.project.description); setShowTeam((value) => !value); }} className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-slate-700 px-3 text-sm text-slate-200"><Users className="h-4 w-4" />Thành viên</button>
-        <button type="button" onClick={onSettings} aria-label="Cài đặt" className="rounded-xl border border-slate-700 p-3 text-slate-200"><Settings2 className="h-5 w-5" /></button>
+        <button type="button" onClick={() => { setProjectName(data.project.name); setProjectDescription(data.project.description); setShowTeam((value) => !value); }} aria-label="Thành viên và lời mời" className="hidden h-10 items-center gap-1.5 rounded-xl border border-slate-700 bg-slate-900 px-2.5 text-xs font-semibold text-slate-200 lg:inline-flex xl:px-3"><Users className="h-4 w-4 text-indigo-300" /><span className="hidden xl:inline">Mời nhóm ({data.members.filter((member) => member.active).length}/20)</span></button>
+        <button type="button" onClick={onSettings} aria-label="Cài đặt" className="hidden h-10 w-10 items-center justify-center rounded-xl border border-slate-700 bg-slate-900 text-indigo-300 lg:flex"><Settings2 className="h-4 w-4" /></button>
+        {actor && <button type="button" onClick={() => setShowAddStack((value) => !value)} className="inline-flex h-10 items-center gap-1 rounded-xl bg-indigo-600 px-2.5 text-xs font-semibold text-white sm:px-3"><Plus className="h-4 w-4" /><span className="hidden sm:inline">Thêm Stack mới</span><span className="sm:hidden">Stack</span></button>}
+        <button type="button" onClick={onSettings} aria-label="Cài đặt tài khoản và ứng dụng" title="Cài đặt" className="flex h-9 w-9 items-center justify-center rounded-xl bg-emerald-600 text-[11px] font-bold text-white lg:hidden">{identity.name.slice(0, 2).toUpperCase()}</button>
       </div>
+      </div>
+      <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-slate-900 lg:hidden"><div className="h-full rounded-full bg-gradient-to-r from-indigo-500 to-emerald-400" style={{ width: `${progress}%` }} /></div>
     </header>
     {data.project.accessRole === 'global_admin' && <p className="mt-4 rounded-xl border border-indigo-500/40 bg-indigo-500/10 p-3 text-sm text-indigo-100">Chế độ theo dõi của admin. Bạn không ở danh sách thành viên và không thể tạo hoặc đánh dấu việc.</p>}
     {error && <p role="alert" className="mt-4 rounded-xl border border-red-500/40 bg-red-500/10 p-3 text-sm text-red-200">{error}</p>}
     {!online && <p role="status" className="mt-4 rounded-xl border border-amber-500/40 bg-amber-500/10 p-3 text-sm text-amber-200">Đang mất kết nối. Chưa thể lưu thay đổi vào dữ liệu nhóm; hãy kết nối Internet trước khi chỉnh sửa.</p>}
-    {showActivity && <div className="mt-5"><AccountActivityPanel activities={data.activities} /></div>}
-
-    <section className="mt-5 rounded-2xl border border-slate-700 bg-slate-900/80 p-4 lg:hidden" aria-label="Tiến độ dự án">
-      <div className="flex items-center justify-between gap-3 text-sm"><span className="font-semibold text-foreground">Tiến độ toàn dự án</span><span className="text-slate-300">{completedCount}/{data.tasks.length} việc · {progress}%</span></div>
-      <div className="mt-3 h-2 overflow-hidden rounded-full bg-slate-800"><div className="h-full rounded-full bg-emerald-500" style={{ width: `${progress}%` }} /></div>
-    </section>
 
     {showTeam && <section className="mt-5 rounded-2xl border border-slate-700 bg-slate-900 p-4">
       <h2 className="font-semibold text-foreground">Thành viên dự án</h2>
@@ -438,11 +465,11 @@ export function ProjectWorkspace({ projectId, identity, onBack, onSettings }: Pr
       </div>}
     </section>}
 
-    {actor && <form onSubmit={(event) => void addStack(event)} className="mt-6 flex gap-2"><input required value={newStack} onChange={(event) => setNewStack(event.target.value)} placeholder="Thêm giai đoạn công việc" className="min-h-11 min-w-0 flex-1 rounded-xl border border-slate-700 bg-slate-900 px-4 text-sm text-foreground" /><button type="submit" disabled={busy} className="inline-flex min-h-11 items-center gap-1 rounded-xl bg-indigo-600 px-4 text-sm font-semibold text-white disabled:opacity-50"><Plus className="h-4 w-4" />Thêm</button></form>}
+    {actor && showAddStack && <form onSubmit={(event) => void addStack(event)} className="mt-5 flex gap-2 rounded-2xl border border-indigo-500/40 bg-slate-900 p-4"><input required autoFocus value={newStack} onChange={(event) => setNewStack(event.target.value)} placeholder="Tên Stack mới" className="min-h-11 min-w-0 flex-1 rounded-xl border border-slate-700 bg-slate-950 px-4 text-sm text-foreground" /><button type="submit" disabled={busy} className="inline-flex min-h-11 items-center gap-1 rounded-xl bg-indigo-600 px-4 text-sm font-semibold text-white disabled:opacity-50"><Plus className="h-4 w-4" />Thêm</button></form>}
 
     <section className="mt-6 space-y-3" aria-label="Tìm và lọc công việc">
       {memberFilterId && <button type="button" onClick={() => setMemberFilterId(null)} className="rounded-lg border border-indigo-500/50 bg-indigo-500/10 px-3 py-1.5 text-xs text-indigo-200">Đang lọc: {memberName(data.members, memberFilterId)} · Bỏ lọc</button>}
-      <label className="relative block max-w-md"><Search className="absolute left-3 top-3.5 h-4 w-4 text-slate-400" /><span className="sr-only">Tìm kiếm đầu việc hoặc ghi chú</span><input value={searchQuery} onChange={(event) => setSearchQuery(event.target.value)} placeholder="Tìm kiếm đầu việc hoặc ghi chú..." className="min-h-11 w-full rounded-xl border border-slate-700 bg-slate-900 pl-9 pr-3 text-sm text-foreground" /></label>
+      <label className="relative block max-w-md lg:hidden"><Search className="absolute left-3 top-3.5 h-4 w-4 text-slate-400" /><span className="sr-only">Tìm kiếm đầu việc hoặc ghi chú</span><input value={searchQuery} onChange={(event) => setSearchQuery(event.target.value)} placeholder="Tìm kiếm đầu việc hoặc ghi chú..." className="min-h-11 w-full rounded-xl border border-slate-700 bg-slate-900 pl-9 pr-3 text-sm text-foreground" /></label>
       <div className="flex items-center gap-2 overflow-x-auto pb-1"><Filter className="h-4 w-4 shrink-0 text-slate-400" />{([
         ['all', 'Tất cả'], ['mine', `Việc của tôi (${mineCount})`], ['incomplete', 'Chưa xong'],
         ['doing', 'Đang làm'], ['blocked', 'Đang kẹt'], ['done', 'Hoàn thành'],
@@ -460,12 +487,14 @@ export function ProjectWorkspace({ projectId, identity, onBack, onSettings }: Pr
       {stacks.length === 0 && <div className="rounded-2xl border border-dashed border-slate-700 p-8 text-center text-sm text-slate-400">Chưa có giai đoạn nào. {actor ? 'Hãy thêm giai đoạn đầu tiên.' : 'Chủ dự án sẽ thêm công việc sau.'}</div>}
     </div>
     </div>
-    <aside className="hidden border-l border-slate-800 p-5 xl:block xl:h-dvh xl:sticky xl:top-0 xl:overflow-y-auto"><AccountActivityPanel activities={data.activities} /></aside>
-    <nav className="fixed inset-x-0 bottom-0 z-40 grid grid-cols-4 border-t border-slate-800 bg-slate-950/95 px-2 pb-2 pt-2 backdrop-blur lg:hidden" aria-label="Điều hướng dự án">
-      <button type="button" onClick={() => { setFilter('all'); setShowActivity(false); setShowTeam(false); }} className={`flex flex-col items-center gap-1 text-[11px] ${filter === 'all' && !showActivity && !showTeam ? 'text-indigo-300' : 'text-slate-400'}`}><CheckSquare2 className="h-5 w-5" />Checklist</button>
-      <button type="button" onClick={() => { setFilter('mine'); setShowActivity(false); setShowTeam(false); }} className={`flex flex-col items-center gap-1 text-[11px] ${filter === 'mine' && !showActivity ? 'text-indigo-300' : 'text-slate-400'}`}><UserCheck className="h-5 w-5" />Của tôi ({mineCount})</button>
-      <button type="button" onClick={() => { setShowActivity(true); setShowTeam(false); }} className={`flex flex-col items-center gap-1 text-[11px] ${showActivity ? 'text-indigo-300' : 'text-slate-400'}`}><Activity className="h-5 w-5" />Nhật ký</button>
-      <button type="button" onClick={() => { setShowTeam(true); setShowActivity(false); }} className={`flex flex-col items-center gap-1 text-[11px] ${showTeam ? 'text-indigo-300' : 'text-slate-400'}`}><Users className="h-5 w-5" />Nhóm</button>
+    <aside className={`hidden border-l border-slate-800 xl:sticky xl:top-0 xl:block xl:h-dvh xl:overflow-y-auto ${rightSidebarOpen ? 'p-5' : 'p-2'}`}>
+      <button type="button" onClick={() => setRightSidebarOpen((value) => !value)} aria-label={rightSidebarOpen ? 'Ẩn thanh nhật ký bên phải' : 'Mở thanh nhật ký bên phải'} title={rightSidebarOpen ? 'Ẩn thanh nhật ký bên phải' : 'Mở thanh nhật ký bên phải'} className={`mb-4 rounded-lg border border-slate-800 p-2 text-slate-400 hover:bg-slate-900 hover:text-foreground ${rightSidebarOpen ? '' : 'mx-auto block'}`}>{rightSidebarOpen ? <PanelRightClose className="h-4 w-4" /> : <PanelRightOpen className="h-4 w-4" />}</button>
+      {rightSidebarOpen && <AccountActivityPanel activities={data.activities} />}
+    </aside>
+    <nav className="fixed inset-x-0 bottom-0 z-40 grid grid-cols-3 border-t border-slate-800 bg-slate-950/95 px-2 pb-2 pt-2 backdrop-blur lg:hidden" aria-label="Điều hướng dự án">
+      <button type="button" onClick={() => { setFilter('all'); setShowTeam(false); }} className={`flex flex-col items-center gap-1 text-[11px] ${filter === 'all' && !showTeam ? 'text-indigo-300' : 'text-slate-400'}`}><CheckSquare2 className="h-5 w-5" />Checklist</button>
+      <button type="button" onClick={() => { setFilter('mine'); setShowTeam(false); }} className={`flex flex-col items-center gap-1 text-[11px] ${filter === 'mine' && !showTeam ? 'text-indigo-300' : 'text-slate-400'}`}><UserCheck className="h-5 w-5" />Của tôi ({mineCount})</button>
+      <button type="button" onClick={() => setShowTeam(true)} className={`flex flex-col items-center gap-1 text-[11px] ${showTeam ? 'text-indigo-300' : 'text-slate-400'}`}><Users className="h-5 w-5" />Nhóm</button>
     </nav>
   </main>;
 }

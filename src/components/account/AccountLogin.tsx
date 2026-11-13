@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { CheckSquare2, LogIn } from 'lucide-react';
+import { Layers, LogIn } from 'lucide-react';
 import { accountAuthService } from '../../infrastructure/auth/accountAuthService';
 
 export function AccountLogin({ error }: { error: string | null }) {
@@ -20,8 +20,8 @@ export function AccountLogin({ error }: { error: string | null }) {
 
   return <main className="min-h-dvh flex items-center justify-center p-5">
     <section className="w-full max-w-md rounded-3xl border border-slate-700 bg-slate-900/85 p-7 shadow-2xl">
-      <div className="inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-indigo-600 text-white">
-        <CheckSquare2 className="h-6 w-6" />
+      <div className="inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br from-indigo-500 to-sky-500 text-white shadow-lg shadow-indigo-500/20">
+        <Layers className="h-6 w-6" />
       </div>
       <h1 className="mt-5 text-3xl font-bold text-foreground">StackFlow</h1>
       <p className="mt-2 text-sm text-slate-300">
