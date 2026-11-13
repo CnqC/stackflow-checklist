@@ -21,4 +21,16 @@ describe('V2 drawer writes on account projects', () => {
     expect(assign).toHaveBeenCalledWith('task', 4, ['new']);
     expect(update.mock.invocationCallOrder[0]).toBeLessThan(assign.mock.invocationCallOrder[0]);
   });
+
+  it('does not bump a task version when the V2 drawer saves unchanged fields', async () => {
+    const data = {
+      tasks: [{ id: 'task', project_id: 'project', version: 3, title: 'Việc', notes: '', status: 'todo', priority: 'medium', due_date: null, stack_id: 'stack' }],
+      assignees: [], subtasks: [], links: [],
+    } as unknown as ProjectData;
+    const update = vi.spyOn(accountProjectRepository, 'updateTask');
+    await saveV2Item(data, 'task', {
+      title: 'Việc', notes: '', status: 'todo', priority: 'medium', dueDate: null, stackId: 'stack',
+    });
+    expect(update).not.toHaveBeenCalled();
+  });
 });

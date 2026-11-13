@@ -16,12 +16,12 @@ export async function saveV2Item(data: ProjectData, itemId: string, patch: V2Ite
   })) throw new Error('Để sửa link, hãy xóa link cũ rồi thêm link mới.');
 
   const taskPatch: Partial<ProjectTask> = {};
-  if (patch.title !== undefined) taskPatch.title = patch.title.trim();
-  if (patch.notes !== undefined) taskPatch.notes = patch.notes;
-  if (patch.status !== undefined) taskPatch.status = patch.status;
-  if (patch.priority !== undefined) taskPatch.priority = patch.priority;
-  if (patch.dueDate !== undefined) taskPatch.due_date = patch.dueDate || null;
-  if (patch.stackId !== undefined) taskPatch.stack_id = patch.stackId;
+  if (patch.title !== undefined && patch.title.trim() !== task.title) taskPatch.title = patch.title.trim();
+  if (patch.notes !== undefined && patch.notes !== task.notes) taskPatch.notes = patch.notes;
+  if (patch.status !== undefined && patch.status !== task.status) taskPatch.status = patch.status;
+  if (patch.priority !== undefined && patch.priority !== task.priority) taskPatch.priority = patch.priority;
+  if (patch.dueDate !== undefined && (patch.dueDate || null) !== task.due_date) taskPatch.due_date = patch.dueDate || null;
+  if (patch.stackId !== undefined && patch.stackId !== task.stack_id) taskPatch.stack_id = patch.stackId;
   let taskVersion = task.version;
   if (Object.keys(taskPatch).length) {
     taskVersion = await accountProjectRepository.updateTask(task.id, taskVersion, taskPatch);
