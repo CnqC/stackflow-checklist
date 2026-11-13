@@ -29,6 +29,13 @@ function memberName(members: ProjectMember[], memberId: string | null): string {
   return members.find((member) => member.id === memberId)?.display_name ?? 'Chưa giao';
 }
 
+function draftFromTask(task: ProjectTask) {
+  return {
+    version: task.version, dirty: false, title: task.title, notes: task.notes,
+    status: task.status, priority: task.priority, dueDate: task.due_date ?? '',
+  };
+}
+
 function CreateTaskForm({ stack, members, actor, onCreate, busy }: {
   stack: ProjectStack;
   members: ProjectMember[];
@@ -72,9 +79,8 @@ function TaskCard({ task, data, actor, busy, mutate }: {
   const [expanded, setExpanded] = useState(false);
   const [newSubtask, setNewSubtask] = useState('');
   const [newAssignee, setNewAssignee] = useState('');
-  const [title, setTitle] = useState(task.title);
-  const [notes, setNotes] = useState(task.notes);
-  const [status, setStatus] = useState(task.status);
+  const [draft, setDraft] = useState(() => draftFromTask(task));
+  const currentDraft = draft.version === task.version || draft.dirty ? draft : draftFromTask(task);
   const assigneeIds = data.assignees.filter((entry) => entry.task_id === task.id).map((entry) => entry.member_id);
   const subtasks = data.subtasks.filter((entry) => entry.task_id === task.id)
     .sort((a, b) => a.position - b.position);
@@ -83,9 +89,12 @@ function TaskCard({ task, data, actor, busy, mutate }: {
 
   async function saveDetails(event: FormEvent) {
     event.preventDefault();
-    await mutate(() => accountProjectRepository.updateTask(task.id, task.version, {
-      title: title.trim(), notes: notes.trim(), status,
+    const saved = await mutate(() => accountProjectRepository.updateTask(task.id, currentDraft.version, {
+      title: currentDraft.title.trim(), notes: currentDraft.notes.trim(),
+      status: currentDraft.status, priority: currentDraft.priority,
+      due_date: currentDraft.dueDate || null,
     }));
+    if (saved) setDraft({ ...currentDraft, dirty: false });
   }
 
   async function addSubtask(event: FormEvent) {
@@ -115,9 +124,14 @@ function TaskCard({ task, data, actor, busy, mutate }: {
 
     {expanded && <div className="mt-4 space-y-4 border-t border-slate-800 pt-4">
       {manager ? <form onSubmit={(event) => void saveDetails(event)} className="space-y-2">
-        <label className="block text-xs text-slate-400">Tên việc<input value={title} onChange={(event) => setTitle(event.target.value)} required maxLength={240} className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-950 p-2.5 text-sm text-foreground" /></label>
-        <label className="block text-xs text-slate-400">Ghi chú<textarea value={notes} onChange={(event) => setNotes(event.target.value)} rows={2} className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-950 p-2.5 text-sm text-foreground" /></label>
-        <label className="block text-xs text-slate-400">Trạng thái<select value={status} onChange={(event) => setStatus(event.target.value as ProjectTask['status'])} disabled={task.completed} className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-950 p-2.5 text-sm text-foreground"><option value="todo">Cần làm</option><option value="doing">Đang làm</option><option value="blocked">Bị chặn</option>{task.completed && <option value="done">Hoàn thành</option>}</select></label>
+        {currentDraft.version !== task.version && <div className="rounded-lg border border-amber-500/40 bg-amber-500/10 p-2 text-xs text-amber-300">Việc này vừa được cập nhật trên thiết bị khác. Nội dung bạn đang nhập vẫn còn; hãy đối chiếu trước khi dùng bản mới. <button type="button" onClick={() => setDraft(draftFromTask(task))} className="ml-1 font-semibold underline">Dùng bản mới</button></div>}
+        <label className="block text-xs text-slate-400">Tên việc<input value={currentDraft.title} onChange={(event) => setDraft({ ...currentDraft, title: event.target.value, dirty: true })} required maxLength={240} className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-950 p-2.5 text-sm text-foreground" /></label>
+        <label className="block text-xs text-slate-400">Ghi chú<textarea value={currentDraft.notes} onChange={(event) => setDraft({ ...currentDraft, notes: event.target.value, dirty: true })} rows={2} className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-950 p-2.5 text-sm text-foreground" /></label>
+        <div className="grid gap-2 sm:grid-cols-3">
+          <label className="block text-xs text-slate-400">Trạng thái<select value={currentDraft.status} onChange={(event) => setDraft({ ...currentDraft, status: event.target.value as ProjectTask['status'], dirty: true })} disabled={task.completed} className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-950 p-2.5 text-sm text-foreground"><option value="todo">Cần làm</option><option value="doing">Đang làm</option><option value="blocked">Bị chặn</option>{task.completed && <option value="done">Hoàn thành</option>}</select></label>
+          <label className="block text-xs text-slate-400">Ưu tiên<select value={currentDraft.priority} onChange={(event) => setDraft({ ...currentDraft, priority: event.target.value as ProjectTask['priority'], dirty: true })} className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-950 p-2.5 text-sm text-foreground"><option value="low">Thấp</option><option value="medium">Vừa</option><option value="high">Cao</option></select></label>
+          <label className="block text-xs text-slate-400">Hạn chót<input type="date" value={currentDraft.dueDate} onChange={(event) => setDraft({ ...currentDraft, dueDate: event.target.value, dirty: true })} className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-950 p-2.5 text-sm text-foreground" /></label>
+        </div>
         <button type="submit" disabled={busy} className="rounded-lg border border-indigo-500 px-3 py-2 text-xs font-semibold text-indigo-200 disabled:opacity-50">Lưu thay đổi</button>
       </form> : <p className="text-sm text-slate-300">{task.notes || 'Chưa có ghi chú.'}</p>}
 
