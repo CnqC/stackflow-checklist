@@ -113,9 +113,8 @@ export interface ProjectData {
 
 export type ProjectTable = 'project' | 'members' | 'stacks' | 'tasks' | 'assignees' | 'subtasks' | 'links' | 'activities' | 'notices';
 
-export function canManageTask(task: ProjectTask, actor: ProjectMember | null): boolean {
-  return Boolean(actor?.active &&
-    (actor.access_role === 'owner' || task.created_by_member_id === actor.id));
+export function canManageTask(_task: ProjectTask, actor: ProjectMember | null): boolean {
+  return Boolean(actor?.active);
 }
 
 export function canToggleTask(

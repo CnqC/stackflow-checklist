@@ -18,4 +18,4 @@ Mốc đối chiếu: giao diện và luồng làm việc của bản PIN trên 
 | Tái sử dụng component Stack, drawer và nhật ký của giao diện V2 | Đã nối vào workspace tài khoản trên nhánh `v2-google-auth` | Kiểm thử thao tác thật và đối chiếu phần còn khác của khung ứng dụng |
 | PWA Windows, APK Android đăng nhập Google | Mã callback đã có | Cần thử trên thiết bị thật |
 
-Không bật production v3 cho tới khi các dòng còn thiếu được hoàn thành hoặc chủ dự án thay đổi phạm vi bằng quyết định mới. Schema v3 đã có migrations `001`–`010` trên project `xwzwsysekkizxmmjjjvn`; project PIN cũ và GitHub Pages chưa chuyển.
+Không bật production v3 cho tới khi các dòng còn thiếu được hoàn thành hoặc chủ dự án thay đổi phạm vi bằng quyết định mới. Schema tài khoản đã có migrations `001`–`011` trên project `xwzwsysekkizxmmjjjvn`; project PIN cũ và GitHub Pages chưa chuyển.

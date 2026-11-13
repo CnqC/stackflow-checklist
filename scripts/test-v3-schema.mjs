@@ -67,6 +67,8 @@ try {
   await db.exec(taskOrder);
   const stackCreationPriority = readFileSync(new URL('../supabase/migrations/202611130010_stack_creation_priority.sql', import.meta.url), 'utf8');
   await db.exec(stackCreationPriority);
+  const v2MemberCollaboration = readFileSync(new URL('../supabase/migrations/202611130011_v2_member_collaboration.sql', import.meta.url), 'utf8');
+  await db.exec(v2MemberCollaboration);
 
   for (const [name, id] of Object.entries(ids)) {
     await db.query(
@@ -128,6 +130,12 @@ try {
     [projectId, stack.rows[0].id, [member.rows[0].id]],
   ));
   const taskId = task.rows[0].id;
+  await asUser(ids.member, () => db.query(
+    "update public.tasks set notes='Team edit' where id=$1", [taskId],
+  ));
+  assert.equal((await asUser(ids.owner, () => db.query(
+    'select notes from public.tasks where id=$1', [taskId],
+  ))).rows[0].notes, 'Team edit');
   const memberNotice = await asUser(ids.member, () => db.query(
     'select id, kind from public.assignment_notices where project_id=$1', [projectId],
   ));
@@ -162,10 +170,9 @@ try {
     "insert into public.task_links(project_id,task_id,label,url) values ($1,$2,'Design','https://example.com/design') returning id",
     [projectId, taskId],
   ));
-  await expectDenied(() => asUser(ids.member, () => db.query(
-    "insert into public.task_links(project_id,task_id,label,url) values ($1,$2,'Wrong','https://example.com')",
-    [projectId, taskId],
-  )));
+  await asUser(ids.member, () => db.query(
+    "update public.task_links set label='Team link' where id=$1", [link.rows[0].id],
+  ));
   assert.equal((await asUser(ids.outsider, () => db.query(
     'select count(*)::int as n from public.task_links where project_id=$1', [projectId],
   ))).rows[0].n, 0);
@@ -211,8 +218,11 @@ try {
   await expectDenied(() => asUser(ids.member, () => db.query(
     'update public.tasks set completed=true where id=$1', [laterTask.rows[0].id],
   )));
+  const taskVersionBeforeCompletion = (await asUser(ids.member, () => db.query(
+    'select version from public.tasks where id=$1', [taskId],
+  ))).rows[0].version;
   await asUser(ids.member, () => db.query(
-    'update public.tasks set completed=true where id=$1 and version=1 returning version', [taskId],
+    'update public.tasks set completed=true where id=$1 and version=$2 returning version', [taskId, taskVersionBeforeCompletion],
   ));
   await asUser(ids.member, () => db.query(
     'update public.tasks set completed=true where id=$1', [laterTask.rows[0].id],

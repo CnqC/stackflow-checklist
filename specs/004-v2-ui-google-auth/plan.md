@@ -11,6 +11,7 @@
 1. `src/components/StackGroupCard.tsx`, `TaskDetailDrawer.tsx`, `ActivityPanel.tsx` và phần bố cục V2 là nguồn giao diện. Không tái tạo lại các tính năng này bằng một bản UI rút gọn.
 2. `accountV2Snapshot.ts` chuyển read model tài khoản sang kiểu dữ liệu V2, giữ nguyên ID, vị trí, người được giao, subtask, link và nhật ký. Không đưa PIN vào read model.
 3. `accountV2Actions.ts` chuyển thao tác của V2 drawer sang repository tài khoản. Repository gọi PostgREST/RPC với version; database là nơi quyết định quyền cuối cùng.
+   Migration `202611130011` cho thành viên đang hoạt động sửa nội dung task như V2; quyền tick vẫn theo người được giao.
 4. Các thao tác nhiều bảng cần được rà soát để tránh lưu dở khi một bước thất bại. Không đưa vào production cho tới khi kiểm thử xung đột và lỗi mạng.
 
 ## Cổng trước khi phát hành
