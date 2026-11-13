@@ -13,6 +13,7 @@ import {
   X,
 } from 'lucide-react';
 import { generateId } from '../domain/stackDomain';
+import { canCompleteSubtask, canCompleteTask } from '../core/domain/taskCompletionPolicy';
 import { priorityLabelVi, statusLabelVi } from '../services/syncService';
 import type {
   ChecklistItem,
@@ -48,6 +49,7 @@ interface TaskDetailDrawerProps {
       >
     >,
   ) => Promise<void>;
+  onToggleSubtask: (itemId: string, subtaskId: string) => Promise<SubtaskItem[]>;
   onDeleteItem: (itemId: string) => Promise<void>;
   onMoveItem: (itemId: string, direction: 'up' | 'down') => Promise<void>;
 }
@@ -59,6 +61,7 @@ export const TaskDetailDrawer: React.FC<TaskDetailDrawerProps> = ({
   currentMember,
   onClose,
   onSaveItem,
+  onToggleSubtask,
   onDeleteItem,
   onMoveItem,
 }) => {
@@ -77,6 +80,8 @@ export const TaskDetailDrawer: React.FC<TaskDetailDrawerProps> = ({
   const [newLinkLabel, setNewLinkLabel] = useState('');
   const [newLinkUrl, setNewLinkUrl] = useState('');
   const [saving, setSaving] = useState(false);
+  const [togglingSubtaskId, setTogglingSubtaskId] = useState<string | null>(null);
+  const [saveError, setSaveError] = useState<string | null>(null);
 
   const activeItemId = item?.id ?? null;
 
@@ -99,6 +104,7 @@ export const TaskDetailDrawer: React.FC<TaskDetailDrawerProps> = ({
     setLinks(item.links);
     setNewSubtask('');
     setNewSubtaskAssigneeId('');
+    setSaveError(null);
     // Only reset draft fields when switching to a different task ID so auto-saving
     // subtasks/links/assignees never overwrites unsaved title or notes edits.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -107,6 +113,7 @@ export const TaskDetailDrawer: React.FC<TaskDetailDrawerProps> = ({
   if (!item) return null;
 
   const memberMap = new Map(members.map((m) => [m.id, m]));
+  const canToggleTaskCompletion = Boolean(currentMember && canCompleteTask(item, currentMember.id));
 
   const handleToggleAssigneePill = (memberId: string) => {
     const next = assigneeIds.includes(memberId)
@@ -130,6 +137,7 @@ export const TaskDetailDrawer: React.FC<TaskDetailDrawerProps> = ({
   const handleSave = async () => {
     if (!title.trim()) return;
     setSaving(true);
+    setSaveError(null);
     try {
       await onSaveItem(item.id, {
         title: title.trim(),
@@ -140,10 +148,11 @@ export const TaskDetailDrawer: React.FC<TaskDetailDrawerProps> = ({
         assigneeId: assigneeIds[0] ?? null,
         stackId,
         dueDate: dueDate || null,
-        subtasks,
         links,
       });
       onClose();
+    } catch (error) {
+      setSaveError(error instanceof Error ? error.message : 'Không thể lưu thay đổi.');
     } finally {
       setSaving(false);
     }
@@ -159,6 +168,7 @@ export const TaskDetailDrawer: React.FC<TaskDetailDrawerProps> = ({
         title: newSubtask.trim(),
         completed: false,
         assigneeId: newSubtaskAssigneeId || null,
+        completedById: null,
         completedByName: null,
       },
     ];
@@ -168,18 +178,18 @@ export const TaskDetailDrawer: React.FC<TaskDetailDrawerProps> = ({
     void onSaveItem(item.id, { subtasks: next });
   };
 
-  const handleToggleSubtask = (subId: string) => {
-    const next = subtasks.map((s) => {
-      if (s.id !== subId) return s;
-      const nextCompleted = !s.completed;
-      return {
-        ...s,
-        completed: nextCompleted,
-        completedByName: nextCompleted ? (currentMember?.name ?? s.completedByName ?? null) : null,
-      };
-    });
-    setSubtasks(next);
-    void onSaveItem(item.id, { subtasks: next });
+  const handleToggleSubtask = async (subId: string) => {
+    const target = subtasks.find((sub) => sub.id === subId);
+    if (togglingSubtaskId || !target || !currentMember || !canCompleteSubtask(item, target, currentMember.id)) return;
+    setSaveError(null);
+    setTogglingSubtaskId(subId);
+    try {
+      setSubtasks(await onToggleSubtask(item.id, subId));
+    } catch (error) {
+      setSaveError(error instanceof Error ? error.message : 'Không thể cập nhật phần việc nhỏ.');
+    } finally {
+      setTogglingSubtaskId(null);
+    }
   };
 
   const handleChangeSubtaskAssignee = (subId: string, nextAssigneeId: string) => {
@@ -340,14 +350,18 @@ export const TaskDetailDrawer: React.FC<TaskDetailDrawerProps> = ({
               <select
                 value={status}
                 onChange={(e) => setStatus(e.target.value as TaskStatus)}
+                disabled={item.completed && !canToggleTaskCompletion}
                 className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-700/80 text-xs sm:text-sm text-white focus:outline-none focus:border-indigo-500"
               >
                 {(['todo', 'doing', 'blocked', 'done'] as TaskStatus[]).map((st) => (
-                  <option key={st} value={st}>
+                  <option key={st} value={st} disabled={st === 'done' && !canToggleTaskCompletion}>
                     {statusLabelVi(st)}
                   </option>
                 ))}
               </select>
+              {!canToggleTaskCompletion && (
+                <p className="mt-1 text-[11px] text-slate-500">Chỉ người được giao task này có thể đánh dấu hoàn thành hoặc mở lại.</p>
+              )}
             </div>
 
             <div>
@@ -420,11 +434,15 @@ export const TaskDetailDrawer: React.FC<TaskDetailDrawerProps> = ({
                 {subtasks.length})
               </span>
             </div>
+            <p className="text-[11px] text-slate-400">
+              Phần việc có người phụ trách riêng chỉ người đó được tick. Phần việc chưa giao do người phụ trách task lớn tick.
+            </p>
 
             {subtasks.length > 0 && (
               <ul className="space-y-2">
                 {subtasks.map((sub) => {
                   const subAssignee = sub.assigneeId ? memberMap.get(sub.assigneeId) : undefined;
+                  const canToggleSubtask = Boolean(currentMember && canCompleteSubtask(item, sub, currentMember.id));
                   return (
                     <li
                       key={sub.id}
@@ -433,9 +451,11 @@ export const TaskDetailDrawer: React.FC<TaskDetailDrawerProps> = ({
                       <div className="flex items-center gap-2.5 min-w-0 flex-1">
                         <button
                           type="button"
-                          onClick={() => handleToggleSubtask(sub.id)}
-                          aria-label={`Đánh dấu xong bước nhỏ ${sub.title}`}
-                          className={`w-5 h-5 rounded-md flex items-center justify-center border shrink-0 cursor-pointer ${
+                          disabled={!canToggleSubtask || togglingSubtaskId !== null}
+                          onClick={() => void handleToggleSubtask(sub.id)}
+                          aria-label={`${sub.completed ? 'Mở lại' : 'Đánh dấu xong'} bước nhỏ ${sub.title}`}
+                          title={!canToggleSubtask ? 'Chỉ người phụ trách được tick phần việc này' : undefined}
+                          className={`w-5 h-5 rounded-md flex items-center justify-center border shrink-0 cursor-pointer disabled:cursor-not-allowed disabled:opacity-50 ${
                             sub.completed
                               ? 'bg-emerald-500 border-emerald-400 text-slate-950'
                               : 'bg-slate-950 border-slate-600 hover:border-indigo-400'
@@ -608,6 +628,7 @@ export const TaskDetailDrawer: React.FC<TaskDetailDrawerProps> = ({
           )}
         </div>
 
+        {saveError && <p role="alert" className="px-5 py-2 text-xs text-rose-300">{saveError}</p>}
         {/* Footer Actions */}
         <div className="px-5 py-3.5 border-t border-slate-800 bg-slate-950/80 flex items-center justify-between gap-3">
           <button

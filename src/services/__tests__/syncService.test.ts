@@ -6,6 +6,7 @@ import {
   isItemLockedBySequence,
   normalizeRoomCode,
 } from '../../domain/stackDomain';
+import { canCompleteSubtask, canCompleteTask } from '../../core/domain/taskCompletionPolicy';
 import { MAX_TEAM_MEMBERS } from '../../types/models';
 import {
   decryptPayload,
@@ -75,8 +76,8 @@ describe('StackFlow Domain & Realtime Sync Service', () => {
       actor: creator,
     });
 
-    const step1 = await svc.addItem({ stackId: stack.id, title: 'Build APK', actor: creator });
-    const step2 = await svc.addItem({ stackId: stack.id, title: 'QA Smoke Test', actor: creator });
+    const step1 = await svc.addItem({ stackId: stack.id, title: 'Build APK', assigneeId: creator.id, actor: creator });
+    const step2 = await svc.addItem({ stackId: stack.id, title: 'QA Smoke Test', assigneeId: creator.id, actor: creator });
 
     let snap = svc.getSnapshot()!;
     const stackItemsBefore = snap.items.filter((i) => i.stackId === stack.id);
@@ -158,6 +159,56 @@ describe('StackFlow Domain & Realtime Sync Service', () => {
     expect(updated.assigneeIds).toEqual([quang.id, minh.id]);
     expect(updated.assigneeId).toBe(quang.id);
 
+    svc.teardownConnections();
+  });
+
+  it('allows only responsible members to complete tasks and subtasks through every update path', async () => {
+    const svc = new StackFlowSyncService();
+    const { creator: quang } = await svc.createWorkspace({
+      code: 'TASK-OWNERS', name: 'Task owners', pinCode: '5678',
+      creatorName: 'Quang', useStarterTemplate: false,
+    });
+    const minh = await svc.addMember('Minh');
+    const stack = await svc.addStack({ title: 'Work', actor: quang });
+    const item = await svc.addItem({
+      stackId: stack.id, title: 'Parent', assigneeIds: [minh.id], actor: quang,
+      subtasks: [
+        { id: 'owned', title: 'Owned by Quang', completed: false, assigneeId: quang.id },
+        { id: 'inherited', title: 'Inherited from parent', completed: false, assigneeId: null },
+      ],
+    });
+
+    expect(canCompleteTask(item, quang.id)).toBe(false);
+    expect(canCompleteTask(item, minh.id)).toBe(true);
+    expect(canCompleteTask({ ...item, assigneeIds: [], assigneeId: null }, minh.id)).toBe(false);
+    expect(canCompleteTask({ ...item, assigneeIds: [], assigneeId: minh.id }, minh.id)).toBe(false);
+    expect(canCompleteTask({ ...item, assigneeIds: [quang.id, minh.id] }, quang.id)).toBe(true);
+    expect(canCompleteSubtask(item, item.subtasks[0]!, quang.id)).toBe(true);
+    expect(canCompleteSubtask(item, item.subtasks[0]!, minh.id)).toBe(false);
+    expect(canCompleteSubtask(item, item.subtasks[1]!, minh.id)).toBe(true);
+
+    await expect(svc.toggleItem(item.id, quang)).rejects.toThrow(/Chỉ người được giao/);
+    await expect(svc.updateItem(item.id, { status: 'done' }, quang)).rejects.toThrow(/Chỉ người được giao/);
+    await expect(svc.updateItem(item.id, {
+      subtasks: item.subtasks.map((sub) => sub.id === 'inherited' ? { ...sub, completed: true } : sub),
+    }, quang)).rejects.toThrow(/Chỉ người phụ trách/);
+    expect(svc.getSnapshot()!.items.find((entry) => entry.id === item.id)!.completed).toBe(false);
+
+    await svc.updateItem(item.id, {
+      subtasks: item.subtasks.map((sub) => sub.id === 'owned'
+        ? { ...sub, completed: true, completedByName: 'Forged' } : sub),
+    }, quang);
+    const afterOwned = svc.getSnapshot()!.items.find((entry) => entry.id === item.id)!;
+    expect(afterOwned.subtasks[0]!.completedByName).toBe(quang.name);
+    expect(afterOwned.subtasks[0]!.completedById).toBe(quang.id);
+    await expect(svc.toggleSubtask(item.id, 'owned', minh)).rejects.toThrow(/Chỉ người phụ trách/);
+    const afterInherited = await svc.toggleSubtask(item.id, 'inherited', minh);
+    expect(afterInherited.find((sub) => sub.id === 'owned')?.completed).toBe(true);
+    expect(afterInherited.find((sub) => sub.id === 'inherited')).toMatchObject({
+      completed: true, completedById: minh.id, completedByName: minh.name,
+    });
+    await svc.toggleItem(item.id, minh);
+    expect(svc.getSnapshot()!.items.find((entry) => entry.id === item.id)!.completedById).toBe(minh.id);
     svc.teardownConnections();
   });
 });

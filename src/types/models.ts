@@ -33,6 +33,7 @@ export interface SubtaskItem {
   title: string;
   completed: boolean;
   assigneeId?: string | null;
+  completedById?: string | null;
   completedByName?: string | null;
 }
 

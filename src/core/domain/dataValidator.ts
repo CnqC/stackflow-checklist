@@ -16,6 +16,7 @@ export type LegacySubtaskInput = {
   title?: string;
   completed?: boolean;
   assigneeId?: string | null;
+  completedById?: string | null;
   completedByName?: string | null;
 };
 
@@ -96,13 +97,18 @@ export function sanitizeSubtaskItem(
     typeof raw.completedByName === 'string' && raw.completedByName.trim().length > 0
       ? raw.completedByName.trim()
       : null;
+  const completedById =
+    typeof raw.completedById === 'string' && raw.completedById.trim().length > 0
+      ? raw.completedById.trim()
+      : null;
 
   return {
     id,
     title,
     completed,
     assigneeId,
-    completedByName,
+    ...(completed && completedById ? { completedById } : {}),
+    completedByName: completed ? completedByName : null,
   };
 }
 

@@ -14,6 +14,7 @@ import {
   Unlock,
 } from 'lucide-react';
 import { calculateProgress, isItemLockedBySequence } from '../domain/stackDomain';
+import { canCompleteTask } from '../core/domain/taskCompletionPolicy';
 import { statusLabelVi } from '../services/syncService';
 import type { ChecklistItem, Member, StackGroup } from '../types/models';
 
@@ -230,6 +231,7 @@ export const StackGroupCard: React.FC<StackGroupCardProps> = ({
                 const visibleAvatars = assignees.slice(0, 3);
                 const extraAssigneeCount = Math.max(0, assignees.length - visibleAvatars.length);
                 const isCurrentMemberAssigned = assignees.some((a) => a.id === currentMember.id);
+                const canToggleCompletion = canCompleteTask(item, currentMember.id);
                 const hasMySubtask = item.subtasks.some(
                   (s) => s.assigneeId === currentMember.id && !s.completed,
                 );
@@ -250,6 +252,7 @@ export const StackGroupCard: React.FC<StackGroupCardProps> = ({
                     {/* Checkbox / Sequence Lock Button */}
                     <button
                       type="button"
+                      disabled={!canToggleCompletion}
                       onClick={() => {
                         if (isSeqLocked && seqCheck.blockingItemTitle) {
                           onNotifyBlockedSequence(seqCheck.blockingItemTitle);
@@ -257,8 +260,9 @@ export const StackGroupCard: React.FC<StackGroupCardProps> = ({
                         }
                         onToggleItem(item);
                       }}
-                      aria-label={`Đánh dấu hoàn thành ${item.title}`}
-                      className={`mt-0.5 w-6 h-6 rounded-lg flex items-center justify-center shrink-0 border transition cursor-pointer ${
+                      aria-label={`${item.completed ? 'Mở lại' : 'Đánh dấu hoàn thành'} ${item.title}`}
+                      title={!canToggleCompletion ? 'Chỉ người được giao việc mới có thể tick' : undefined}
+                      className={`mt-0.5 w-6 h-6 rounded-lg flex items-center justify-center shrink-0 border transition cursor-pointer disabled:cursor-not-allowed disabled:opacity-50 ${
                         item.completed
                           ? 'bg-emerald-500 border-emerald-400 text-slate-950 shadow-sm shadow-emerald-500/30'
                           : isSeqLocked

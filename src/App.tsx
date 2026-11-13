@@ -892,7 +892,11 @@ export function App() {
                       visibleItems={visibleItems}
                       members={snapshot.members}
                       currentMember={currentMember}
-                      onToggleItem={(it) => void syncService.toggleItem(it.id, currentMember)}
+                      onToggleItem={(it) => {
+                        void syncService.toggleItem(it.id, currentMember).catch((error: unknown) => {
+                          showToast(error instanceof Error ? error.message : 'Không thể cập nhật đầu việc.');
+                        });
+                      }}
                       onSelectItem={(it) => setSelectedItemId(it.id)}
                       onQuickAddItem={async (stackId, title, assigneeId, assigneeIds) => {
                         await syncService.addItem({
@@ -990,6 +994,7 @@ export function App() {
         currentMember={currentMember}
         onClose={() => setSelectedItemId(null)}
         onSaveItem={(itemId, patch) => syncService.updateItem(itemId, patch, currentMember)}
+        onToggleSubtask={(itemId, subtaskId) => syncService.toggleSubtask(itemId, subtaskId, currentMember)}
         onDeleteItem={(itemId) => syncService.deleteItem(itemId, currentMember)}
         onMoveItem={(itemId, dir) => syncService.moveItem(itemId, dir)}
       />

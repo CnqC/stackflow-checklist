@@ -9,6 +9,7 @@ import {
   detectNewAssignmentNotices,
   type AssignmentCheckpoint,
 } from '../core/domain/notificationDiffEngine';
+import { canCompleteSubtask, canCompleteTask } from '../core/domain/taskCompletionPolicy';
 import { domainEventBus } from '../core/events/domainEventBus';
 import {
   canAddMember,
@@ -1497,6 +1498,9 @@ export class StackFlowSyncService {
     if (!this.currentSnapshot) return;
     const item = this.currentSnapshot.items.find((i) => i.id === itemId);
     if (!item) return;
+    if (!canCompleteTask(item, actor.id)) {
+      throw new Error('Chỉ người được giao việc mới có thể đánh dấu hoàn thành hoặc mở lại.');
+    }
 
     const nextCompleted = !item.completed;
     const nextStatus: TaskStatus = nextCompleted ? 'done' : 'todo';
@@ -1562,6 +1566,21 @@ export class StackFlowSyncService {
     });
   }
 
+  public async toggleSubtask(itemId: string, subtaskId: string, actor: Member): Promise<SubtaskItem[]> {
+    const item = this.currentSnapshot?.items.find((entry) => entry.id === itemId);
+    const subtask = item?.subtasks.find((entry) => entry.id === subtaskId);
+    if (!item || !subtask) throw new Error('Không tìm thấy phần việc nhỏ.');
+    if (!canCompleteSubtask(item, subtask, actor.id)) {
+      throw new Error('Chỉ người phụ trách phần việc nhỏ mới có thể đánh dấu hoàn thành hoặc mở lại.');
+    }
+
+    const nextSubtasks = item.subtasks.map((entry) => entry.id === subtaskId
+      ? { ...entry, completed: !entry.completed }
+      : entry);
+    await this.updateItem(itemId, { subtasks: nextSubtasks }, actor);
+    return this.currentSnapshot?.items.find((entry) => entry.id === itemId)?.subtasks ?? nextSubtasks;
+  }
+
   public async updateItem(
     itemId: string,
     patch: ChecklistItemPatch,
@@ -1575,6 +1594,9 @@ export class StackFlowSyncService {
     const now = new Date().toISOString();
     const resolvedCompleted =
       patch.status !== undefined ? patch.status === 'done' : current.completed;
+    if (resolvedCompleted !== current.completed && !canCompleteTask(current, actor.id)) {
+      throw new Error('Chỉ người được giao việc mới có thể đổi trạng thái hoàn thành.');
+    }
     const resolvedStatus: TaskStatus =
       patch.status !== undefined ? patch.status : resolvedCompleted ? 'done' : current.status;
 
@@ -1588,11 +1610,31 @@ export class StackFlowSyncService {
       resolvedAssigneeId = resolvedAssigneeIds[0] ?? null;
     }
 
+    const existingSubtasks = new Map(current.subtasks.map((sub) => [sub.id, sub]));
     const resolvedSubtasks =
       patch.subtasks !== undefined
         ? patch.subtasks
             .map((sub, idx) => sanitizeSubtaskItem(sub, idx, validMemberIds))
             .filter((sub) => sub.title.length > 0)
+            .map((sub) => {
+              const previous = existingSubtasks.get(sub.id);
+              if (!previous && sub.completed) {
+                throw new Error('Hãy tạo phần việc nhỏ trước khi đánh dấu hoàn thành.');
+              }
+              if (previous && previous.completed !== sub.completed &&
+                  !canCompleteSubtask(current, previous, actor.id)) {
+                throw new Error('Chỉ người phụ trách phần việc nhỏ mới có thể đánh dấu hoàn thành hoặc mở lại.');
+              }
+              return {
+                ...sub,
+                completedById: sub.completed
+                  ? previous?.completed === sub.completed ? previous.completedById ?? null : actor.id
+                  : null,
+                completedByName: sub.completed
+                  ? previous?.completed === sub.completed ? previous.completedByName ?? null : actor.name
+                  : null,
+              };
+            })
         : undefined;
 
     const fullPatch: Partial<ChecklistItem> = {
