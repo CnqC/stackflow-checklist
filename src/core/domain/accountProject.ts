@@ -23,6 +23,7 @@ export interface ProjectStack {
   title: string;
   description: string;
   color: string;
+  priority: 'low' | 'medium' | 'high';
   position: number;
   sequential_lock: boolean;
   collapsed: boolean;

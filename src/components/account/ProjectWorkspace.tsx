@@ -11,6 +11,7 @@ import {
   type ProjectTask,
   type ProjectTable,
 } from '../../core/domain/accountProject';
+import { sortProjectStacks, STACK_PALETTE, STACK_PRIORITY_LABELS, type StackSort } from '../../core/domain/accountStack';
 import type { AccountIdentity } from '../../infrastructure/auth/accountAuthService';
 import { accountProjectRepository } from '../../infrastructure/projects/accountProjectRepository';
 import { AccountActivityPanel } from './AccountActivityPanel';
@@ -270,6 +271,11 @@ export function ProjectWorkspace({ projectId, identity, onBack, onSettings }: Pr
   const [showTeam, setShowTeam] = useState(false);
   const [inviteEmail, setInviteEmail] = useState('');
   const [newStack, setNewStack] = useState('');
+  const [newStackDescription, setNewStackDescription] = useState('');
+  const [newStackColor, setNewStackColor] = useState<string>(STACK_PALETTE[0]);
+  const [newStackSequential, setNewStackSequential] = useState(false);
+  const [newStackPriority, setNewStackPriority] = useState<ProjectStack['priority']>('medium');
+  const [stackSort, setStackSort] = useState<StackSort>('position');
   const [projectName, setProjectName] = useState('');
   const [projectDescription, setProjectDescription] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
@@ -352,8 +358,14 @@ export function ProjectWorkspace({ projectId, identity, onBack, onSettings }: Pr
 
   async function addStack(event: FormEvent) {
     event.preventDefault();
-    const success = await mutate(() => accountProjectRepository.addStack(projectId, newStack.trim()));
-    if (success) { setNewStack(''); setShowAddStack(false); }
+    const success = await mutate(() => accountProjectRepository.addStack({
+      projectId, title: newStack.trim(), description: newStackDescription.trim(),
+      color: newStackColor, sequentialLock: newStackSequential, priority: newStackPriority,
+    }));
+    if (success) {
+      setNewStack(''); setNewStackDescription(''); setNewStackSequential(false);
+      setNewStackPriority('medium'); setShowAddStack(false);
+    }
   }
 
   async function invite(event: FormEvent) {
@@ -377,7 +389,8 @@ export function ProjectWorkspace({ projectId, identity, onBack, onSettings }: Pr
     {error ? <p role="alert" className="rounded-xl border border-red-500/40 bg-red-500/10 p-4 text-red-200">{error}</p> : <p>Đang tải dự án...</p>}
   </main>;
 
-  const stacks = [...data.stacks].sort((a, b) => a.position - b.position || a.created_at.localeCompare(b.created_at) || a.id.localeCompare(b.id));
+  const stacks = sortProjectStacks(data.stacks, stackSort);
+  const manualStacks = sortProjectStacks(data.stacks, 'position');
   const mineIds = new Set(data.assignees.filter((entry) => entry.member_id === actor?.id).map((entry) => entry.task_id));
   const mySubtaskIds = new Set(data.subtasks.filter((entry) => entry.assignee_member_id === actor?.id).map((entry) => entry.task_id));
   const mineCount = data.tasks.filter((task) => !task.completed && (mineIds.has(task.id) || mySubtaskIds.has(task.id))).length;
@@ -465,7 +478,21 @@ export function ProjectWorkspace({ projectId, identity, onBack, onSettings }: Pr
       </div>}
     </section>}
 
-    {actor && showAddStack && <form onSubmit={(event) => void addStack(event)} className="mt-5 flex gap-2 rounded-2xl border border-indigo-500/40 bg-slate-900 p-4"><input required autoFocus value={newStack} onChange={(event) => setNewStack(event.target.value)} placeholder="Tên Stack mới" className="min-h-11 min-w-0 flex-1 rounded-xl border border-slate-700 bg-slate-950 px-4 text-sm text-foreground" /><button type="submit" disabled={busy} className="inline-flex min-h-11 items-center gap-1 rounded-xl bg-indigo-600 px-4 text-sm font-semibold text-white disabled:opacity-50"><Plus className="h-4 w-4" />Thêm</button></form>}
+    {actor && showAddStack && <form onSubmit={(event) => void addStack(event)} className="mt-5 space-y-4 rounded-2xl border border-indigo-500/40 bg-slate-900 p-4 shadow-xl sm:p-5">
+      <div className="flex items-center justify-between"><h2 className="text-sm font-bold text-foreground">Tạo Stack / Giai đoạn mới</h2><button type="button" onClick={() => setShowAddStack(false)} aria-label="Đóng tạo Stack" className="text-slate-400 hover:text-foreground"><X className="h-4 w-4" /></button></div>
+      <div className="grid gap-3 sm:grid-cols-2">
+        <input required autoFocus maxLength={160} value={newStack} onChange={(event) => setNewStack(event.target.value)} placeholder="VD: Stack 5 — Phát hành & Marketing" aria-label="Tên Stack" className="min-h-11 min-w-0 rounded-xl border border-slate-700 bg-slate-950 px-3.5 text-sm text-foreground focus:border-indigo-500 focus:outline-none" />
+        <input value={newStackDescription} onChange={(event) => setNewStackDescription(event.target.value)} placeholder="Mô tả ngắn mục tiêu của Stack này (tùy chọn)" aria-label="Mô tả Stack" className="min-h-11 min-w-0 rounded-xl border border-slate-700 bg-slate-950 px-3.5 text-sm text-foreground focus:border-indigo-500 focus:outline-none" />
+      </div>
+      <div className="flex flex-wrap items-center justify-between gap-4">
+        <div className="flex flex-wrap items-center gap-4">
+          <label className="inline-flex cursor-pointer items-center gap-2 text-xs text-slate-300"><input type="checkbox" checked={newStackSequential} onChange={(event) => setNewStackSequential(event.target.checked)} className="accent-indigo-500" />Khóa thứ tự tuần tự (xong bước trên mới mở bước dưới)</label>
+          <fieldset className="flex items-center gap-2" aria-label="Màu Stack"><legend className="sr-only">Màu Stack</legend>{STACK_PALETTE.map((color) => <button key={color} type="button" aria-label={`Chọn màu ${color}`} aria-pressed={newStackColor === color} onClick={() => setNewStackColor(color)} className={`h-5 w-5 rounded-full ${newStackColor === color ? 'ring-2 ring-white ring-offset-2 ring-offset-slate-900' : ''}`} style={{ backgroundColor: color }} />)}</fieldset>
+          <label className="flex items-center gap-2 text-xs text-slate-300">Mức độ ưu tiên<select value={newStackPriority} onChange={(event) => setNewStackPriority(event.target.value as ProjectStack['priority'])} className="min-h-9 rounded-lg border border-slate-700 bg-slate-950 px-2 text-xs text-foreground"><option value="low">Thấp</option><option value="medium">Trung bình</option><option value="high">Cao</option></select></label>
+        </div>
+        <div className="flex items-center gap-2"><button type="button" onClick={() => setShowAddStack(false)} className="rounded-xl px-3 py-2 text-xs text-slate-400 hover:text-foreground">Hủy</button><button type="submit" disabled={busy} className="rounded-xl bg-indigo-600 px-4 py-2 text-xs font-semibold text-white disabled:opacity-50">Tạo Stack</button></div>
+      </div>
+    </form>}
 
     <section className="mt-6 space-y-3" aria-label="Tìm và lọc công việc">
       {memberFilterId && <button type="button" onClick={() => setMemberFilterId(null)} className="rounded-lg border border-indigo-500/50 bg-indigo-500/10 px-3 py-1.5 text-xs text-indigo-200">Đang lọc: {memberName(data.members, memberFilterId)} · Bỏ lọc</button>}
@@ -474,11 +501,17 @@ export function ProjectWorkspace({ projectId, identity, onBack, onSettings }: Pr
         ['all', 'Tất cả'], ['mine', `Việc của tôi (${mineCount})`], ['incomplete', 'Chưa xong'],
         ['doing', 'Đang làm'], ['blocked', 'Đang kẹt'], ['done', 'Hoàn thành'],
       ] as [TaskFilter, string][]).map(([value, label]) => <button type="button" key={value} aria-pressed={filter === value} onClick={() => setFilter(value)} className={`shrink-0 rounded-xl border px-3 py-1.5 text-xs font-medium ${filter === value ? 'border-indigo-500 bg-indigo-600 text-white' : 'border-slate-700 bg-slate-900 text-slate-300'}`}>{label}</button>)}</div>
+      <label className="flex w-fit items-center gap-2 text-xs text-slate-400">Sắp xếp Stack<select value={stackSort} onChange={(event) => setStackSort(event.target.value as StackSort)} className="min-h-9 rounded-lg border border-slate-700 bg-slate-900 px-2 text-xs text-foreground"><option value="position">Thứ tự thủ công</option><option value="priority_high">Ưu tiên cao trước</option><option value="priority_low">Ưu tiên thấp trước</option></select></label>
     </section>
 
     <div className="mt-6 space-y-4">
-      {stacks.map((stack, stackIndex) => <section key={stack.id} id={`stack-${stack.id}`} className="scroll-mt-4 overflow-hidden rounded-2xl border border-slate-700 bg-slate-900/80 p-4 shadow-lg shadow-black/20" style={{ borderTopColor: stack.color, borderTopWidth: 3 }}>
-        <div className="flex items-center justify-between gap-2"><button type="button" onClick={() => void mutate(() => accountProjectRepository.updateStack(stack.id, stack.version, { collapsed: !stack.collapsed }))} className="flex min-w-0 items-center gap-2 text-left text-foreground">{stack.collapsed ? <ChevronRight className="h-4 w-4 shrink-0" /> : <ChevronDown className="h-4 w-4 shrink-0" />}<span><span className="block font-bold">{stack.title}</span><span className="mt-1 block text-xs text-slate-400">{data.tasks.filter((task) => task.stack_id === stack.id).length} việc</span></span></button><div className="flex items-center gap-2">{actor && <button type="button" disabled={busy} onClick={() => void mutate(() => accountProjectRepository.updateStack(stack.id, stack.version, { sequential_lock: !stack.sequential_lock }))} title={stack.sequential_lock ? 'Tắt thứ tự tuần tự' : 'Bật thứ tự tuần tự'} className="flex items-center gap-1 rounded-lg border border-slate-700 px-2 py-1 text-xs text-slate-300 disabled:opacity-50">{stack.sequential_lock ? <Lock className="h-3.5 w-3.5 text-amber-400" /> : <Unlock className="h-3.5 w-3.5" />}{stack.sequential_lock ? 'Tuần tự' : 'Tự do'}</button>}{actor && <div className="flex rounded-lg border border-slate-700"><button type="button" disabled={busy || stackIndex === 0} aria-label={`Đưa ${stack.title} lên trên`} onClick={() => void mutate(() => accountProjectRepository.moveStack(stack.id, stack.version, 'up'))} className="p-1 text-slate-300 disabled:opacity-30"><ChevronUp className="h-4 w-4" /></button><button type="button" disabled={busy || stackIndex === stacks.length - 1} aria-label={`Đưa ${stack.title} xuống dưới`} onClick={() => void mutate(() => accountProjectRepository.moveStack(stack.id, stack.version, 'down'))} className="p-1 text-slate-300 disabled:opacity-30"><ChevronDown className="h-4 w-4" /></button></div>}{actor?.access_role === 'owner' && <button type="button" disabled={busy} onClick={() => { if (window.confirm(`Xóa giai đoạn “${stack.title}” và tất cả việc bên trong?`)) void mutate(() => accountProjectRepository.deleteStack(stack.id, stack.version)); }} className="text-xs text-red-300 disabled:opacity-50">Xóa</button>}</div></div>
+      {stacks.map((stack) => <section key={stack.id} id={`stack-${stack.id}`} className="scroll-mt-4 overflow-hidden rounded-2xl border border-slate-700 bg-slate-900/80 p-4 shadow-lg shadow-black/20" style={{ borderTopColor: stack.color, borderTopWidth: 3 }}>
+        <div className="flex flex-wrap items-center justify-between gap-2"><button type="button" onClick={() => void mutate(() => accountProjectRepository.updateStack(stack.id, stack.version, { collapsed: !stack.collapsed }))} className="flex min-w-0 items-center gap-2 text-left text-foreground">{stack.collapsed ? <ChevronRight className="h-4 w-4 shrink-0" /> : <ChevronDown className="h-4 w-4 shrink-0" />}<span><span className="block font-bold">{stack.title}</span><span className="mt-1 block text-xs text-slate-400">{stack.description || `${data.tasks.filter((task) => task.stack_id === stack.id).length} việc`}</span></span></button><div className="flex flex-wrap items-center gap-2">
+          {actor ? <select aria-label={`Mức độ ưu tiên của ${stack.title}`} value={stack.priority} disabled={busy} onChange={(event) => void mutate(() => accountProjectRepository.updateStack(stack.id, stack.version, { priority: event.target.value as ProjectStack['priority'] }))} className="rounded-lg border border-slate-700 bg-slate-950 px-2 py-1 text-xs text-slate-200"><option value="low">Ưu tiên thấp</option><option value="medium">Ưu tiên trung bình</option><option value="high">Ưu tiên cao</option></select> : <span className="rounded-lg border border-slate-700 px-2 py-1 text-xs text-slate-300">Ưu tiên {STACK_PRIORITY_LABELS[stack.priority].toLowerCase()}</span>}
+          {actor && <button type="button" disabled={busy} onClick={() => void mutate(() => accountProjectRepository.updateStack(stack.id, stack.version, { sequential_lock: !stack.sequential_lock }))} title={stack.sequential_lock ? 'Tắt thứ tự tuần tự' : 'Bật thứ tự tuần tự'} className="flex items-center gap-1 rounded-lg border border-slate-700 px-2 py-1 text-xs text-slate-300 disabled:opacity-50">{stack.sequential_lock ? <Lock className="h-3.5 w-3.5 text-amber-400" /> : <Unlock className="h-3.5 w-3.5" />}{stack.sequential_lock ? 'Tuần tự' : 'Tự do'}</button>}
+          {actor && stackSort === 'position' && <div className="flex rounded-lg border border-slate-700"><button type="button" disabled={busy || manualStacks[0]?.id === stack.id} aria-label={`Đưa ${stack.title} lên trên`} onClick={() => void mutate(() => accountProjectRepository.moveStack(stack.id, stack.version, 'up'))} className="p-1 text-slate-300 disabled:opacity-30"><ChevronUp className="h-4 w-4" /></button><button type="button" disabled={busy || manualStacks.at(-1)?.id === stack.id} aria-label={`Đưa ${stack.title} xuống dưới`} onClick={() => void mutate(() => accountProjectRepository.moveStack(stack.id, stack.version, 'down'))} className="p-1 text-slate-300 disabled:opacity-30"><ChevronDown className="h-4 w-4" /></button></div>}
+          {actor?.access_role === 'owner' && <button type="button" disabled={busy} onClick={() => { if (window.confirm(`Xóa giai đoạn “${stack.title}” và tất cả việc bên trong?`)) void mutate(() => accountProjectRepository.deleteStack(stack.id, stack.version)); }} className="text-xs text-red-300 disabled:opacity-50">Xóa</button>}
+        </div></div>
         <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-slate-900"><div className="h-full rounded-full bg-indigo-500" style={{ width: `${data.tasks.some((task) => task.stack_id === stack.id) ? Math.round(data.tasks.filter((task) => task.stack_id === stack.id && task.completed).length / data.tasks.filter((task) => task.stack_id === stack.id).length * 100) : 0}%` }} /></div>
         {!stack.collapsed && <><div className="mt-4 space-y-3">{visibleTasks(stack.id).map((task) => <TaskCard key={task.id} task={task} stack={stack} data={data} actor={actor} busy={busy} mutate={mutate} selectedTaskId={selectedTaskId} onClearSelectedTask={() => setSelectedTaskId(null)} />)}</div>
         {visibleTasks(stack.id).length === 0 && data.tasks.some((task) => task.stack_id === stack.id) && <p className="mt-3 text-xs text-slate-400">Không có việc phù hợp bộ lọc.</p>}

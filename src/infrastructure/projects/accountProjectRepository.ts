@@ -237,8 +237,18 @@ export const accountProjectRepository = {
     return () => { void client().removeChannel(channel); };
   },
 
-  async addStack(projectId: string, title: string): Promise<void> {
-    const { error } = await client().rpc('create_stack', { p_project_id: projectId, p_title: title });
+  async addStack(input: {
+    projectId: string; title: string; description: string; color: string;
+    sequentialLock: boolean; priority: ProjectStack['priority'];
+  }): Promise<void> {
+    const { error } = await client().rpc('create_stack', {
+      p_project_id: input.projectId,
+      p_title: input.title,
+      p_description: input.description,
+      p_color: input.color,
+      p_sequential_lock: input.sequentialLock,
+      p_priority: input.priority,
+    });
     check(error);
   },
   async moveStack(id: string, version: number, direction: 'up' | 'down'): Promise<void> {

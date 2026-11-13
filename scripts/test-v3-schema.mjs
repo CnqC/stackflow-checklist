@@ -65,6 +65,8 @@ try {
   await db.exec(stackOrder);
   const taskOrder = readFileSync(new URL('../supabase/migrations/202611130009_task_order.sql', import.meta.url), 'utf8');
   await db.exec(taskOrder);
+  const stackCreationPriority = readFileSync(new URL('../supabase/migrations/202611130010_stack_creation_priority.sql', import.meta.url), 'utf8');
+  await db.exec(stackCreationPriority);
 
   for (const [name, id] of Object.entries(ids)) {
     await db.query(
@@ -275,6 +277,28 @@ try {
   assert.equal((await asUser(ids.member, () => db.query(
     'select id from public.stacks where project_id=$1 order by position limit 1', [projectId],
   ))).rows[0].id, laterStack.rows[0].id);
+
+  const configuredStack = await asUser(ids.member, () => db.query(
+    "select public.create_stack($1,'Release','Launch plan','#ec4899',true,'high') as id", [projectId],
+  ));
+  assert.deepEqual((await asUser(ids.member, () => db.query(
+    'select description,color,sequential_lock,priority from public.stacks where id=$1',
+    [configuredStack.rows[0].id],
+  ))).rows[0], {
+    description: 'Launch plan', color: '#ec4899', sequential_lock: true, priority: 'high',
+  });
+  await asUser(ids.member, () => db.query(
+    "update public.stacks set priority='low' where id=$1", [configuredStack.rows[0].id],
+  ));
+  assert.equal((await asUser(ids.member, () => db.query(
+    'select priority from public.stacks where id=$1', [configuredStack.rows[0].id],
+  ))).rows[0].priority, 'low');
+  await expectDenied(() => asUser(ids.outsider, () => db.query(
+    "select public.create_stack($1,'Intrusion','','#6366f1',false,'high')", [projectId],
+  )));
+  await expectDenied(() => asUser(ids.member, () => db.query(
+    "select public.create_stack($1,'Invalid','','red',false,'high')", [projectId],
+  )));
 
   console.log('v3 schema: RLS, invitations, completion, membership, admin access and version conflict passed');
 } finally {
