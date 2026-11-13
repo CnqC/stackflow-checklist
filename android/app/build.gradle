@@ -1,5 +1,12 @@
 apply plugin: 'com.android.application'
 
+def appVersion = new groovy.json.JsonSlurper().parseText(file('../../package.json').text).version
+def versionParts = appVersion.tokenize('.').collect { it.toInteger() }
+if (versionParts.size() != 3 || versionParts.any { it < 0 || it > 999 }) {
+    throw new GradleException("App version must be MAJOR.MINOR.PATCH with each part from 0 to 999")
+}
+def appVersionCode = versionParts[0] * 1000000 + versionParts[1] * 1000 + versionParts[2]
+
 def releaseStoreFile = System.getenv('ANDROID_KEYSTORE_FILE')
 def releaseStorePassword = System.getenv('ANDROID_KEYSTORE_PASSWORD')
 def releaseKeyAlias = System.getenv('ANDROID_KEY_ALIAS')
@@ -12,8 +19,8 @@ android {
         applicationId "com.quang.stackflow"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 2
-        versionName "1.1.0"
+        versionCode appVersionCode
+        versionName appVersion
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         aaptOptions {
              // Files and dirs to omit from the packaged assets dir, modified to accommodate modern web apps.

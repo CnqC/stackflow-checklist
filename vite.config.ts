@@ -2,10 +2,28 @@ import tailwindcss from '@tailwindcss/vite';
 import react from '@vitejs/plugin-react';
 import { VitePWA } from 'vite-plugin-pwa';
 import { defineConfig } from 'vitest/config';
+import { execFileSync } from 'node:child_process';
+import { readFileSync } from 'node:fs';
+
+const packageVersion = JSON.parse(readFileSync(new URL('./package.json', import.meta.url), 'utf8')).version as string;
+const releaseNotes = JSON.parse(readFileSync(new URL('./release-notes.json', import.meta.url), 'utf8')) as { title: string; changes: string[] };
+const buildId = process.env.GITHUB_SHA?.slice(0, 12) ?? execFileSync('git', ['rev-parse', '--short=12', 'HEAD'], { encoding: 'utf8' }).trim();
 
 export default defineConfig({
   base: './',
+  define: {
+    __APP_VERSION__: JSON.stringify(packageVersion),
+    __APP_BUILD_ID__: JSON.stringify(buildId),
+  },
   plugins: [
+    {
+      name: 'stackflow-version-manifest',
+      generateBundle() {
+        this.emitFile({ type: 'asset', fileName: 'version.json', source: JSON.stringify({
+          version: packageVersion, buildId, ...releaseNotes,
+        }) });
+      },
+    },
     react(),
     tailwindcss(),
     VitePWA({

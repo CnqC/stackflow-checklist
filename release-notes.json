@@ -1,0 +1,8 @@
+{
+  "title": "Cập nhật ứng dụng",
+  "changes": [
+    "Kiểm tra phiên bản mới trong Cài đặt và nhận nhắc khi có bản cập nhật.",
+    "Bản cài Windows và Web có nút tải lại sau khi phiên bản mới sẵn sàng.",
+    "Android APK có đường dẫn tải bản phát hành mới và hướng dẫn cài đè."
+  ]
+}

@@ -28,6 +28,7 @@
 - **Kiến trúc Đồng bộ Kép (`Dual-Engine Realtime Sync`)**:
   - **Supabase Cloud Mode**: Đồng bộ qua Internet dưới 100ms bằng PostgreSQL + Supabase Realtime (`postgres_changes` & `presence`).
   - **Local Instant Mode**: Chạy ngay lập tức không cần cấu hình, đồng bộ thời gian thực giữa nhiều tab/cửa sổ trình duyệt qua `BroadcastChannel` và cho phép **1-click đẩy toàn bộ dự án lên Supabase Cloud** bất cứ lúc nào.
+- **Kiểm tra cập nhật**: Trong **Cài đặt → Ứng dụng**, xem phiên bản mới và nội dung thay đổi. Web/PWA (kể cả bản cài trên Windows) tải lại bản mới qua Service Worker; APK Android tải bản ký mới từ GitHub Release để cài đè. Quy trình phát hành cho developer nằm trong [`UPDATES.md`](./UPDATES.md).
 
 ---
 

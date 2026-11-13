@@ -3,6 +3,7 @@ import { Bell, Cloud, Download, Palette, X } from 'lucide-react';
 import { AppearanceSettings } from './AppearanceSettings';
 import { DeviceNotificationSettings } from './DeviceNotificationSettings';
 import { NotificationSettings } from './NotificationSettings';
+import { UpdateSettings } from './UpdateSettings';
 import type { SyncMode, WorkspaceSnapshot } from '../types/models';
 
 type SettingsTab = 'appearance' | 'notifications' | 'application';
@@ -25,7 +26,7 @@ const TABS = [
 
 export function AppSettingsModal({ open, onClose, snapshot, memberId, syncMode, onOpenCloud, onOpenInstall }: Props) {
   const [tab, setTab] = useState<SettingsTab>('appearance');
-  const activeTab = snapshot && memberId ? tab : 'appearance';
+  const activeTab = tab === 'notifications' && (!snapshot || !memberId) ? 'appearance' : tab;
   useEffect(() => {
     if (!open) return;
     const onKeyDown = (event: KeyboardEvent) => { if (event.key === 'Escape') onClose(); };
@@ -41,7 +42,7 @@ export function AppSettingsModal({ open, onClose, snapshot, memberId, syncMode, 
         <button type="button" aria-label="Đóng cài đặt" onClick={onClose} className="rounded-lg p-2 text-slate-400 hover:text-foreground hover:bg-slate-800 cursor-pointer"><X className="w-4 h-4" /></button>
       </div>
       <div className="flex border-b border-slate-800 px-3 sm:px-5 overflow-x-auto" role="tablist" aria-label="Mục cài đặt">
-        {TABS.filter(({ id }) => id === 'appearance' || (snapshot && memberId)).map(({ id, label, Icon }) => <button key={id} type="button" role="tab" aria-selected={activeTab === id} onClick={() => setTab(id)}
+        {TABS.filter(({ id }) => id !== 'notifications' || (snapshot && memberId)).map(({ id, label, Icon }) => <button key={id} type="button" role="tab" aria-selected={activeTab === id} onClick={() => setTab(id)}
           className={`inline-flex items-center gap-1.5 px-3 py-3 text-xs font-semibold border-b-2 whitespace-nowrap cursor-pointer ${activeTab === id ? 'text-indigo-300 border-indigo-500' : 'text-slate-400 border-transparent hover:text-foreground'}`}>
           <Icon className="w-4 h-4" />{label}
         </button>)}
@@ -49,10 +50,11 @@ export function AppSettingsModal({ open, onClose, snapshot, memberId, syncMode, 
       <div className="overflow-y-auto p-4 sm:p-5">
         {activeTab === 'appearance' && <AppearanceSettings />}
         {activeTab === 'notifications' && snapshot && memberId && <div className="space-y-6"><DeviceNotificationSettings snapshot={snapshot} memberId={memberId} syncMode={syncMode} /><div className="border-t border-slate-800 pt-5"><NotificationSettings workspaceId={snapshot.workspace.id} memberId={memberId} /></div></div>}
-        {activeTab === 'application' && snapshot && memberId && <div className="space-y-3">
+        {activeTab === 'application' && <div className="space-y-3">
           <h3 className="text-sm font-bold text-foreground">Ứng dụng và đồng bộ</h3>
-          <button type="button" onClick={onOpenCloud} className="w-full flex items-center gap-3 rounded-xl border border-slate-700 bg-slate-900 hover:bg-slate-800 p-3 text-left cursor-pointer"><Cloud className="w-5 h-5 text-indigo-400" /><span><span className="block text-xs font-semibold text-foreground">Đồng bộ dữ liệu</span><span className="block text-[11px] text-slate-400">Chế độ hiện tại: {syncMode === 'supabase' ? 'Supabase Cloud' : syncMode === 'relay' ? 'Internet E2EE' : 'Local'}</span></span></button>
-          <button type="button" onClick={onOpenInstall} className="w-full flex items-center gap-3 rounded-xl border border-slate-700 bg-slate-900 hover:bg-slate-800 p-3 text-left cursor-pointer"><Download className="w-5 h-5 text-indigo-400" /><span><span className="block text-xs font-semibold text-foreground">Cài đặt ứng dụng</span><span className="block text-[11px] text-slate-400">Xem cách cài trên Windows và thiết bị khác</span></span></button>
+          <UpdateSettings />
+          {snapshot && memberId && <><button type="button" onClick={onOpenCloud} className="w-full flex items-center gap-3 rounded-xl border border-slate-700 bg-slate-900 hover:bg-slate-800 p-3 text-left cursor-pointer"><Cloud className="w-5 h-5 text-indigo-400" /><span><span className="block text-xs font-semibold text-foreground">Đồng bộ dữ liệu</span><span className="block text-[11px] text-slate-400">Chế độ hiện tại: {syncMode === 'supabase' ? 'Supabase Cloud' : syncMode === 'relay' ? 'Internet E2EE' : 'Local'}</span></span></button>
+          <button type="button" onClick={onOpenInstall} className="w-full flex items-center gap-3 rounded-xl border border-slate-700 bg-slate-900 hover:bg-slate-800 p-3 text-left cursor-pointer"><Download className="w-5 h-5 text-indigo-400" /><span><span className="block text-xs font-semibold text-foreground">Cài đặt ứng dụng</span><span className="block text-[11px] text-slate-400">Xem cách cài trên Windows và thiết bị khác</span></span></button></>}
         </div>}
       </div>
     </div>

@@ -17,6 +17,7 @@ import {
 } from 'lucide-react';
 import { ActivityPanel } from './components/ActivityPanel';
 import { AppSettingsModal } from './components/AppSettingsModal';
+import { UpdateBanner } from './components/UpdateSettings';
 import { NotificationBell } from './components/NotificationBell';
 import { PinAuthScreen } from './components/PinAuthScreen';
 import { StackGroupCard } from './components/StackGroupCard';
@@ -360,6 +361,7 @@ export function App() {
         <AppSettingsModal open={settingsOpen} onClose={() => setSettingsOpen(false)} snapshot={snapshot} memberId={currentMember?.id ?? null} syncMode={syncMode}
           onOpenCloud={() => { setSettingsOpen(false); setModalTab('cloud'); setModalOpen(true); }}
           onOpenInstall={() => { setSettingsOpen(false); setModalTab('app'); setModalOpen(true); }} />
+        <UpdateBanner />
       </>
     );
   }
@@ -1015,6 +1017,7 @@ export function App() {
       <AppSettingsModal open={settingsOpen} onClose={() => setSettingsOpen(false)} snapshot={snapshot} memberId={currentMember.id} syncMode={syncMode}
         onOpenCloud={() => { setSettingsOpen(false); setModalTab('cloud'); setModalOpen(true); }}
         onOpenInstall={() => { setSettingsOpen(false); setModalTab('app'); setModalOpen(true); }} />
+      <UpdateBanner />
     </div>
   );
 }
