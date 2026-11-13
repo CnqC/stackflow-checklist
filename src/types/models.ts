@@ -58,6 +58,7 @@ export interface StackGroup {
 
 export interface ChecklistItem {
   id: string;
+  version?: number;
   workspaceId: string;
   stackId: string;
   title: string;

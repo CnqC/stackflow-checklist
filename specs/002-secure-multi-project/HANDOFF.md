@@ -12,7 +12,23 @@ Người dùng đồng ý cần khóa dữ liệu theo người/dự án ở dat
 - Đọc `syncService`, `supabaseConfig`, `e2eeRelaySync`, `schema.sql`, `push.sql`, `push-device`, `App`, `taskCompletionPolicy`, constitution và specs hiện có. Không thay đổi dữ liệu production.
 - Xác định nguồn rủi ro: `for all using (true)` trong schema, PIN rõ và kiểm tra ở client; task completion chỉ kiểm tra trong client; relay dùng snapshot retained theo giờ cuối; `members` chưa có user ID; push-device xác nhận PIN/member ID. Production GitHub Actions có biến Supabase URL/anon key được cấu hình, nhưng chưa kiểm tra policy live trong database.
 - Tra tài liệu Supabase chính thức: Auth Email OTP, SMTP, invitation API, RLS/pgTAP, Edge Functions auth, backup. Đề xuất email OTP 6 chữ số để không cần deep link trên Android, với custom SMTP.
-- Viết `spec.md`, `research.md`, `plan.md`, `tasks.md` trong thư mục này. Chưa viết migration, chưa triển khai Auth/RLS, chưa đẩy code vì cutover khi chưa claim member có thể khóa/mất quyền truy cập dữ liệu hiện hữu.
+- Viết `spec.md`, `research.md`, `plan.md`, `tasks.md` trong thư mục này. Ở lượt nghiên cứu, chưa viết migration hoặc triển khai Auth/RLS vì cutover khi chưa claim member có thể khóa quyền truy cập dữ liệu hiện hữu.
+
+## Tiến độ lượt thực thi tiếp theo
+
+- Đã viết `supabase/audit/pre_cutover_audit.sql` (chỉ đọc) và `backup-runbook.md`. Chưa chạy audit/dump production; chưa có nơi lưu backup đã mã hóa hoặc bản restore staging được kiểm chứng.
+- Đã viết migration **cộng thêm** `202611130001_identity_foundation.sql`: profile, `members.user_id`, `access_role`, bảng admin riêng, invitation, audit claim member và RPC claim dành cho admin. Chưa chạy migration trên database.
+- Đã viết `202611130002_secure_completion_rpc.sql`: version từng task, RPC tick task/subtask kiểm tra JWT, người được giao và expected version. Đã viết `202611130003_account_projects_rpc.sql`: tạo dự án, mời/nhận lời mời; các RPC này bị khóa bằng `private.security_state.accounts_enabled=false` cho tới cutover RLS.
+- Đã viết Auth adapter OTP, project catalog repository, secure task repository và màn hình `AccountPreview`. Chỉ bật màn hình staging khi `VITE_ACCOUNT_PREVIEW=true`; mặc định production vẫn chạy App PIN cũ. Chưa nối dashboard với toàn bộ bảng task và chưa đổi `push-device`.
+- `npm run build`, `npm test` (46 test), `npm run lint` đã chạy thành công. SQL chưa thể test trên PostgreSQL: Docker Desktop engine không chạy và chưa có staging DB được cấp quyền. **Không được xem các migration là production-ready cho đến khi chạy trên staging và test quyền.**
+- Không có phép đo quota 5 giờ; vẫn không thể xác nhận mốc 5%.
+
+## Việc còn bắt buộc trước khi phát hành tài khoản
+
+1. Lấy bản backup mã hóa và restore staging; audit policy/grants production. Cần SMTP, admin Auth UUID và danh sách email gắn với member cũ. Trả lời async của người dùng nếu có.
+2. Chạy migration trên staging, sửa mọi lỗi SQL thực tế, viết pgTAP test cho RPC (admin/outsider/assignee, xung đột). Lưu ý `supabase/schema.sql` là bootstrap legacy có policy `true`, không chạy lại sau cutover.
+3. Viết migration cutover RLS + thu hồi anon/direct write và chính sách RPC đầy đủ cho mọi thao tác của App; chỉ migration đó mới được set `accounts_enabled=true` trong cùng transaction. Hiện chưa có migration cutover, và các đường ghi legacy vẫn không an toàn.
+4. Nối Auth/dashboard vào App thực tế, thay toàn bộ ghi trực tiếp bằng RPC, đổi push-device sang JWT, ngắt PIN/MQTT fallback cho dự án account. Kiểm thử Web/PWA/Android, nhiều dự án, member chưa claim và backup/restore.
 
 ## Quyết định kiến trúc đề xuất
 

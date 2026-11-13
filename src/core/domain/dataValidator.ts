@@ -202,6 +202,9 @@ export function sanitizeWorkspaceSnapshot(
 
         return {
           id: item.id,
+          ...(Number.isSafeInteger(item.version) && (item.version ?? 0) > 0
+            ? { version: item.version }
+            : {}),
           workspaceId: item.workspaceId,
           stackId: item.stackId,
           title: item.title,

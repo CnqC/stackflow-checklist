@@ -1,6 +1,6 @@
 # Việc cần triển khai: Secure multi-project
 
-**Trạng thái:** Chưa triển khai migration/code; tài liệu nghiên cứu và kiến trúc đã hoàn tất. Mỗi nhóm việc phải hoàn thành và kiểm chứng trước khi mở nhóm tiếp theo.
+**Trạng thái:** Đã viết migration cộng thêm, Auth adapter và màn hình preview trên staging; chưa áp dụng database hoặc cutover. Các mục bên dưới chỉ đánh dấu hoàn tất khi đã kiểm chứng trên staging/production tương ứng.
 
 ## A. Chụp trạng thái và bảo toàn dữ liệu
 

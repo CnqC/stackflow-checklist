@@ -124,6 +124,7 @@ interface DbStackRow {
 
 interface DbItemRow {
   id: string;
+  version?: number;
   workspace_id: string;
   stack_id: string;
   title: string;
@@ -208,6 +209,7 @@ function mapItemFromDb(r: DbItemRow): ChecklistItem {
 
   return {
     id: r.id,
+    version: r.version,
     workspaceId: r.workspace_id,
     stackId: r.stack_id,
     title: r.title,
