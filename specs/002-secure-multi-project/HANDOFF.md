@@ -1,3 +1,5 @@
+# Lưu trữ lịch sử: phương án PIN/OTP này đã được thay bằng `specs/003-google-account-v3/`.
+
 # Bàn giao cho agent tiếp theo
 
 **Thời điểm:** 2026-11-13, Asia/Saigon.

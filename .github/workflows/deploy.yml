@@ -40,13 +40,14 @@ jobs:
         run: npm ci
 
       - name: Run Unit Tests
-        run: npm test
+        run: npm test && npm run test:db && npm run test:backup
 
       - name: Build Production Bundle
         env:
           VITE_SUPABASE_URL: ${{ vars.VITE_SUPABASE_URL }}
           VITE_SUPABASE_ANON_KEY: ${{ vars.VITE_SUPABASE_ANON_KEY }}
           VITE_WEB_PUSH_PUBLIC_KEY: ${{ vars.VITE_WEB_PUSH_PUBLIC_KEY }}
+          VITE_ACCOUNT_V3: ${{ vars.VITE_ACCOUNT_V3 }}
         run: npm run build
 
       - name: Setup GitHub Pages
@@ -92,6 +93,7 @@ jobs:
           VITE_SUPABASE_URL: ${{ vars.VITE_SUPABASE_URL }}
           VITE_SUPABASE_ANON_KEY: ${{ vars.VITE_SUPABASE_ANON_KEY }}
           VITE_WEB_PUSH_PUBLIC_KEY: ${{ vars.VITE_WEB_PUSH_PUBLIC_KEY }}
+          VITE_ACCOUNT_V3: ${{ vars.VITE_ACCOUNT_V3 }}
         run: |
           npm ci
           if [ -n "$FIREBASE_GOOGLE_SERVICES_JSON_BASE64" ]; then

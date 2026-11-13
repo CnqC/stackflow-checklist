@@ -36,3 +36,5 @@ android/app/*.jks
 android/app/*.dpapi
 release/
 supabase/.temp/
+backups/
+*.sfb

@@ -13,7 +13,7 @@ import {
   Users,
   X,
 } from 'lucide-react';
-import schemaSqlRaw from '../../supabase/schema.sql?raw';
+import schemaSqlRaw from '../../supabase/legacy-schema.sql?raw';
 import { canAddMember } from '../domain/stackDomain';
 import {
   getBundledSupabaseConfig,

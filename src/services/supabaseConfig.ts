@@ -63,6 +63,12 @@ export function getSupabaseClient(): SupabaseClient | null {
   }
 
   cachedClient = createClient(cfg.url, cfg.anonKey, {
+    auth: {
+      flowType: 'pkce',
+      persistSession: true,
+      autoRefreshToken: true,
+      detectSessionInUrl: true,
+    },
     realtime: {
       params: {
         eventsPerSecond: 20,

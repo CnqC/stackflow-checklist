@@ -1,3 +1,5 @@
+# Lưu trữ lịch sử: dùng `specs/003-google-account-v3/cutover.md` cho database mới.
+
 # Sao lưu và chuyển đổi dữ liệu an toàn
 
 ## Trước khi thay đổi production

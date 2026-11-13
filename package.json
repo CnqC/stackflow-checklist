@@ -9,10 +9,14 @@
     "lint": "oxlint",
     "preview": "vite preview",
     "test": "vitest run",
+    "test:db": "node scripts/test-v3-schema.mjs",
+    "test:backup": "node --test scripts/backup-crypto.test.mjs",
     "cap:sync": "npm run build && npx cap sync android"
   },
   "dependencies": {
     "@capacitor/android": "^8.6.0",
+    "@capacitor/app": "^8.1.2",
+    "@capacitor/browser": "^8.0.5",
     "@capacitor/core": "^8.6.0",
     "@capacitor/local-notifications": "^8.3.1",
     "@capacitor/push-notifications": "^8.1.3",
@@ -24,6 +28,7 @@
   },
   "devDependencies": {
     "@capacitor/cli": "^8.6.0",
+    "@electric-sql/pglite": "^0.5.16",
     "@tailwindcss/vite": "^4.3.5",
     "@testing-library/jest-dom": "^7.0.1",
     "@testing-library/react": "^16.3.3",

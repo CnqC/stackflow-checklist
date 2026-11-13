@@ -36,7 +36,7 @@ export default defineConfig({
       manifest: {
         name: 'StackFlow — Checklist Dự Án Nhóm',
         short_name: 'StackFlow',
-        description: 'Checklist theo Stack đồng bộ thời gian thực cho nhóm dưới 10 người trên Web & Mobile App',
+        description: 'Quản lý công việc nhiều dự án cho nhóm tối đa 20 thành viên trên Web và ứng dụng',
         theme_color: '#0f172a',
         background_color: '#090d16',
         display: 'standalone',
@@ -63,5 +63,6 @@ export default defineConfig({
   test: {
     environment: 'jsdom',
     globals: true,
+    include: ['src/**/*.{test,spec}.{js,mjs,cjs,ts,tsx}'],
   },
 });

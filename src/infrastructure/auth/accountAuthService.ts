@@ -1,10 +1,16 @@
 import type { AuthChangeEvent, Session, User } from '@supabase/supabase-js';
+import { App } from '@capacitor/app';
+import { Browser } from '@capacitor/browser';
+import { Capacitor } from '@capacitor/core';
 import { getSupabaseClient } from '../../services/supabaseConfig';
 
 export interface AccountIdentity {
   id: string;
   email: string;
+  name: string;
 }
+
+const NATIVE_REDIRECT = 'com.quang.stackflow://auth/callback';
 
 function requireClient() {
   const client = getSupabaseClient();
@@ -14,7 +20,26 @@ function requireClient() {
 
 function identityFromUser(user: User | null): AccountIdentity | null {
   if (!user?.email) return null;
-  return { id: user.id, email: user.email };
+  const preferredName = user.user_metadata?.full_name;
+  return {
+    id: user.id,
+    email: user.email,
+    name: typeof preferredName === 'string' && preferredName.trim()
+      ? preferredName.trim()
+      : user.email.split('@')[0],
+  };
+}
+
+async function completeNativeRedirect(rawUrl: string): Promise<void> {
+  const url = new URL(rawUrl);
+  if (url.protocol !== 'com.quang.stackflow:' || url.host !== 'auth' || url.pathname !== '/callback') return;
+  const oauthError = url.searchParams.get('error_description') ?? url.searchParams.get('error');
+  if (oauthError) throw new Error(`Đăng nhập Google thất bại: ${oauthError}`);
+  const code = url.searchParams.get('code');
+  if (!code) throw new Error('Google không trả về mã đăng nhập.');
+  const { error } = await requireClient().auth.exchangeCodeForSession(code);
+  if (error) throw new Error(`Không hoàn tất được đăng nhập: ${error.message}`);
+  await Browser.close().catch(() => undefined);
 }
 
 export const accountAuthService = {
@@ -37,32 +62,34 @@ export const accountAuthService = {
     return () => data.subscription.unsubscribe();
   },
 
-  async sendEmailCode(email: string): Promise<void> {
-    const normalized = email.trim().toLowerCase();
-    if (!normalized || !normalized.includes('@')) {
-      throw new Error('Vui lòng nhập email hợp lệ.');
-    }
-    const { error } = await requireClient().auth.signInWithOtp({
-      email: normalized,
-      options: { shouldCreateUser: true },
+  async signInWithGoogle(): Promise<void> {
+    const native = Capacitor.isNativePlatform();
+    const redirectTo = native
+      ? NATIVE_REDIRECT
+      : new URL(import.meta.env.BASE_URL, window.location.href).href;
+    const { data, error } = await requireClient().auth.signInWithOAuth({
+      provider: 'google',
+      options: { redirectTo, skipBrowserRedirect: native },
     });
-    if (error) throw new Error(`Không gửi được mã đăng nhập: ${error.message}`);
+    if (error) throw new Error(`Không mở được Google: ${error.message}`);
+    if (native) {
+      if (!data.url) throw new Error('Google không trả về đường dẫn đăng nhập.');
+      await Browser.open({ url: data.url });
+    }
   },
 
-  async verifyEmailCode(email: string, token: string): Promise<AccountIdentity> {
-    const { data, error } = await requireClient().auth.verifyOtp({
-      email: email.trim().toLowerCase(),
-      token: token.trim(),
-      type: 'email',
+  async listenNativeRedirect(onError: (error: Error) => void): Promise<() => void> {
+    if (!Capacitor.isNativePlatform()) return () => undefined;
+    const listener = await App.addListener('appUrlOpen', ({ url }) => {
+      void completeNativeRedirect(url).catch(onError);
     });
-    if (error) throw new Error(`Mã đăng nhập không hợp lệ: ${error.message}`);
-    const identity = identityFromUser(data.user);
-    if (!identity) throw new Error('Supabase không trả về tài khoản có email.');
-    return identity;
+    const launch = await App.getLaunchUrl();
+    if (launch?.url) void completeNativeRedirect(launch.url).catch(onError);
+    return () => { void listener.remove(); };
   },
 
   async signOut(): Promise<void> {
-    const { error } = await requireClient().auth.signOut();
+    const { error } = await requireClient().auth.signOut({ scope: 'local' });
     if (error) throw new Error(`Không thể đăng xuất: ${error.message}`);
   },
 };
