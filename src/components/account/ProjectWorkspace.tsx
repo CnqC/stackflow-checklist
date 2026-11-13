@@ -267,11 +267,19 @@ export function ProjectWorkspace({ projectId, identity, onBack, onSettings }: Pr
   const [filter, setFilter] = useState<TaskFilter>('all');
   const [memberFilterId, setMemberFilterId] = useState<string | null>(null);
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
+  const [online, setOnline] = useState(() => typeof navigator === 'undefined' || navigator.onLine);
 
   const refresh = useCallback(async () => {
     const next = await accountProjectRepository.loadProject(projectId);
     setData(next);
   }, [projectId]);
+
+  useEffect(() => {
+    const updateOnline = () => setOnline(navigator.onLine);
+    window.addEventListener('online', updateOnline);
+    window.addEventListener('offline', updateOnline);
+    return () => { window.removeEventListener('online', updateOnline); window.removeEventListener('offline', updateOnline); };
+  }, []);
 
   useEffect(() => {
     let active = true;
@@ -401,6 +409,7 @@ export function ProjectWorkspace({ projectId, identity, onBack, onSettings }: Pr
     </header>
     {data.project.accessRole === 'global_admin' && <p className="mt-4 rounded-xl border border-indigo-500/40 bg-indigo-500/10 p-3 text-sm text-indigo-100">Chế độ theo dõi của admin. Bạn không ở danh sách thành viên và không thể tạo hoặc đánh dấu việc.</p>}
     {error && <p role="alert" className="mt-4 rounded-xl border border-red-500/40 bg-red-500/10 p-3 text-sm text-red-200">{error}</p>}
+    {!online && <p role="status" className="mt-4 rounded-xl border border-amber-500/40 bg-amber-500/10 p-3 text-sm text-amber-200">Đang mất kết nối. Chưa thể lưu thay đổi vào dữ liệu nhóm; hãy kết nối Internet trước khi chỉnh sửa.</p>}
     {showActivity && <div className="mt-5"><AccountActivityPanel activities={data.activities} /></div>}
 
     <section className="mt-5 rounded-2xl border border-slate-700 bg-slate-900/80 p-4 lg:hidden" aria-label="Tiến độ dự án">

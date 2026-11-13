@@ -14,9 +14,15 @@ interface Props {
 export function AccountNoticeBell({ projectId, memberId, notices, onRead, onOpenTask }: Props) {
   const [open, setOpen] = useState(false);
   const knownIds = useRef<Set<string> | null>(null);
+  const knownProject = useRef(projectId);
+  const originalTitle = useRef(typeof document === 'undefined' ? 'StackFlow' : document.title);
   const unread = notices.filter((notice) => !notice.read_at).length;
 
   useEffect(() => {
+    if (knownProject.current !== projectId) {
+      knownProject.current = projectId;
+      knownIds.current = null;
+    }
     const currentIds = new Set(notices.map((notice) => notice.id));
     if (knownIds.current) {
       for (const notice of notices) {
@@ -33,9 +39,9 @@ export function AccountNoticeBell({ projectId, memberId, notices, onRead, onOpen
   }, [notices, projectId, memberId]);
 
   useEffect(() => {
-    const original = document.title;
     if (unread) document.title = `(${unread}) StackFlow`;
-    return () => { document.title = original; };
+    else document.title = originalTitle.current;
+    return () => { document.title = originalTitle.current; };
   }, [unread]);
 
   return <div className="relative">
