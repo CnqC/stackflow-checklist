@@ -22,4 +22,16 @@ describe('V2 board account read model', () => {
     expect(snapshot.items[0].subtasks[0]).toMatchObject({ id: 'subtask', assigneeId: 'member' });
     expect(snapshot.items[0].links[0]).toMatchObject({ id: 'link' });
   });
+
+  it('orders tasks by saved position for the V2 sequential lock', () => {
+    const data = {
+      project: { id: 'project', code: 'TEAM', name: 'Dự án', description: '', version: 1, accessRole: 'owner' },
+      members: [], stacks: [], assignees: [], subtasks: [], links: [], activities: [], notices: [],
+      tasks: [
+        { id: 'second', project_id: 'project', stack_id: 'stack', position: 1, created_at: '2026-01-01' },
+        { id: 'first', project_id: 'project', stack_id: 'stack', position: 0, created_at: '2026-01-01' },
+      ],
+    } as unknown as ProjectData;
+    expect(toV2WorkspaceSnapshot(data).items.map((item) => item.id)).toEqual(['first', 'second']);
+  });
 });
