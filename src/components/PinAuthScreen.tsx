@@ -7,6 +7,7 @@ import {
   KeyRound,
   Layers,
   Lock,
+  Settings2,
   Sparkles,
   UserPlus,
   Users,
@@ -38,6 +39,7 @@ interface PinAuthScreenProps {
   onAddAndSelectMember: (name: string, role: string) => Promise<void>;
   onBackToPinStep: () => void;
   onOpenCloudConfig: () => void;
+  onOpenSettings: () => void;
 }
 
 export const PinAuthScreen: React.FC<PinAuthScreenProps> = ({
@@ -52,6 +54,7 @@ export const PinAuthScreen: React.FC<PinAuthScreenProps> = ({
   onAddAndSelectMember,
   onBackToPinStep,
   onOpenCloudConfig,
+  onOpenSettings,
 }) => {
   const [tab, setTab] = useState<'join' | 'create'>('join');
   const [roomCode, setRoomCode] = useState(initialRoomCode || 'TEAM-STACK');
@@ -132,7 +135,7 @@ export const PinAuthScreen: React.FC<PinAuthScreenProps> = ({
   };
 
   return (
-    <div className="min-h-dvh bg-[#090d16] text-slate-100 flex flex-col justify-between relative overflow-hidden safe-top safe-bottom">
+    <div className="min-h-dvh bg-slate-950 text-slate-100 flex flex-col justify-between relative overflow-hidden safe-top safe-bottom">
       {/* Subtle Ambient Glow */}
       <div className="pointer-events-none absolute -top-32 left-1/2 -translate-x-1/2 h-80 w-[36rem] rounded-full bg-indigo-600/20 blur-[110px]" />
 
@@ -140,16 +143,19 @@ export const PinAuthScreen: React.FC<PinAuthScreenProps> = ({
       <header className="relative z-10 w-full max-w-5xl mx-auto px-4 sm:px-6 pt-5 flex items-center justify-between gap-3">
         <div className="flex items-center gap-2.5">
           <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-indigo-500 to-sky-500 flex items-center justify-center shadow-lg shadow-indigo-500/25">
-            <Layers className="w-5 h-5 text-white" />
+            <Layers className="w-5 h-5 text-on-accent" />
           </div>
           <div>
-            <span className="font-bold tracking-tight text-base text-white">StackFlow</span>
+            <span className="font-bold tracking-tight text-base text-foreground">StackFlow</span>
             <span className="ml-2 text-[11px] font-medium px-2 py-0.5 rounded-full bg-indigo-500/15 text-indigo-300 border border-indigo-500/30">
               Web &amp; App
             </span>
           </div>
         </div>
 
+        <div className="flex items-center gap-2">
+        <button type="button" onClick={onOpenSettings} aria-label="Mở cài đặt" title="Cài đặt giao diện"
+          className="rounded-xl p-2 bg-slate-900 hover:bg-slate-800 border border-slate-700 text-indigo-400 cursor-pointer"><Settings2 className="w-4 h-4" /></button>
         <button
           type="button"
           onClick={onOpenCloudConfig}
@@ -164,6 +170,7 @@ export const PinAuthScreen: React.FC<PinAuthScreenProps> = ({
                 : 'Đồng bộ Internet E2EE: Sẵn sàng'}
           </span>
         </button>
+        </div>
       </header>
 
       {/* Main Card */}
@@ -172,7 +179,7 @@ export const PinAuthScreen: React.FC<PinAuthScreenProps> = ({
           {!unlockedSnapshot ? (
             <>
               <div className="mb-5">
-                <h1 className="text-xl sm:text-2xl font-bold text-white tracking-tight">
+                <h1 className="text-xl sm:text-2xl font-bold text-foreground tracking-tight">
                   Checklist Dự Án Nhóm
                 </h1>
                 <p className="text-xs sm:text-sm text-slate-400 mt-1">
@@ -190,7 +197,7 @@ export const PinAuthScreen: React.FC<PinAuthScreenProps> = ({
                   }}
                   className={`py-2 text-xs sm:text-sm font-semibold rounded-lg transition cursor-pointer flex items-center justify-center gap-1.5 ${
                     tab === 'join'
-                      ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/25'
+                      ? 'bg-indigo-600 text-on-accent shadow-md shadow-indigo-600/25'
                       : 'text-slate-400 hover:text-slate-200'
                   }`}
                 >
@@ -205,7 +212,7 @@ export const PinAuthScreen: React.FC<PinAuthScreenProps> = ({
                   }}
                   className={`py-2 text-xs sm:text-sm font-semibold rounded-lg transition cursor-pointer flex items-center justify-center gap-1.5 ${
                     tab === 'create'
-                      ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/25'
+                      ? 'bg-indigo-600 text-on-accent shadow-md shadow-indigo-600/25'
                       : 'text-slate-400 hover:text-slate-200'
                   }`}
                 >
@@ -231,7 +238,7 @@ export const PinAuthScreen: React.FC<PinAuthScreenProps> = ({
                       value={roomCode}
                       onChange={(e) => setRoomCode(normalizeRoomCode(e.target.value))}
                       placeholder="VD: TEAM-STACK"
-                      className="w-full px-3.5 py-2.5 rounded-xl bg-slate-950 border border-slate-700/80 text-sm text-white font-mono tracking-wider focus:outline-none focus:border-indigo-500"
+                      className="w-full px-3.5 py-2.5 rounded-xl bg-slate-950 border border-slate-700/80 text-sm text-foreground font-mono tracking-wider focus:outline-none focus:border-indigo-500"
                       required
                     />
                   </div>
@@ -248,7 +255,7 @@ export const PinAuthScreen: React.FC<PinAuthScreenProps> = ({
                         value={pinCode}
                         onChange={(e) => setPinCode(e.target.value)}
                         placeholder="Nhập mã PIN (mặc định mẫu: 1234)"
-                        className="w-full pl-10 pr-3.5 py-2.5 rounded-xl bg-slate-950 border border-slate-700/80 text-sm text-white tracking-widest focus:outline-none focus:border-indigo-500"
+                        className="w-full pl-10 pr-3.5 py-2.5 rounded-xl bg-slate-950 border border-slate-700/80 text-sm text-foreground tracking-widest focus:outline-none focus:border-indigo-500"
                         required
                       />
                     </div>
@@ -257,7 +264,7 @@ export const PinAuthScreen: React.FC<PinAuthScreenProps> = ({
                   <button
                     type="submit"
                     disabled={busy}
-                    className="w-full py-2.5 px-4 rounded-xl bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white font-semibold text-sm flex items-center justify-center gap-2 shadow-lg shadow-indigo-600/25 transition cursor-pointer"
+                    className="w-full py-2.5 px-4 rounded-xl bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-on-accent font-semibold text-sm flex items-center justify-center gap-2 shadow-lg shadow-indigo-600/25 transition cursor-pointer"
                   >
                     <span>{busy ? 'Đang kiểm tra...' : 'Tiếp tục chọn tên thành viên'}</span>
                     <ArrowRight className="w-4 h-4" />
@@ -291,7 +298,7 @@ export const PinAuthScreen: React.FC<PinAuthScreenProps> = ({
                         }
                       }}
                       placeholder="VD: Ra mắt App Đặt Lịch v1.0"
-                      className="w-full px-3.5 py-2 rounded-xl bg-slate-950 border border-slate-700/80 text-sm text-white focus:outline-none focus:border-indigo-500"
+                      className="w-full px-3.5 py-2 rounded-xl bg-slate-950 border border-slate-700/80 text-sm text-foreground focus:outline-none focus:border-indigo-500"
                       required
                     />
                   </div>
@@ -306,7 +313,7 @@ export const PinAuthScreen: React.FC<PinAuthScreenProps> = ({
                         value={newCode}
                         onChange={(e) => setNewCode(normalizeRoomCode(e.target.value))}
                         placeholder="APP-V1"
-                        className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-700/80 text-sm font-mono text-white focus:outline-none focus:border-indigo-500"
+                        className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-700/80 text-sm font-mono text-foreground focus:outline-none focus:border-indigo-500"
                         required
                       />
                     </div>
@@ -319,7 +326,7 @@ export const PinAuthScreen: React.FC<PinAuthScreenProps> = ({
                         value={newPin}
                         onChange={(e) => setNewPin(e.target.value)}
                         placeholder="VD: 2026"
-                        className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-700/80 text-sm font-mono text-white focus:outline-none focus:border-indigo-500"
+                        className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-700/80 text-sm font-mono text-foreground focus:outline-none focus:border-indigo-500"
                         required
                       />
                     </div>
@@ -335,7 +342,7 @@ export const PinAuthScreen: React.FC<PinAuthScreenProps> = ({
                         value={creatorName}
                         onChange={(e) => setCreatorName(e.target.value)}
                         placeholder="VD: Quang"
-                        className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-700/80 text-sm text-white focus:outline-none focus:border-indigo-500"
+                        className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-700/80 text-sm text-foreground focus:outline-none focus:border-indigo-500"
                         required
                       />
                     </div>
@@ -348,7 +355,7 @@ export const PinAuthScreen: React.FC<PinAuthScreenProps> = ({
                         value={creatorRole}
                         onChange={(e) => setCreatorRole(e.target.value)}
                         placeholder="Lead / Dev / Design"
-                        className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-700/80 text-sm text-white focus:outline-none focus:border-indigo-500"
+                        className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-700/80 text-sm text-foreground focus:outline-none focus:border-indigo-500"
                       />
                     </div>
                   </div>
@@ -356,7 +363,7 @@ export const PinAuthScreen: React.FC<PinAuthScreenProps> = ({
                   <button
                     type="submit"
                     disabled={busy}
-                    className="w-full py-2.5 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white font-semibold text-sm flex items-center justify-center gap-2 shadow-lg shadow-emerald-600/25 transition cursor-pointer"
+                    className="w-full py-2.5 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-on-accent font-semibold text-sm flex items-center justify-center gap-2 shadow-lg shadow-emerald-600/25 transition cursor-pointer"
                   >
                     <span>{busy ? 'Đang khởi tạo...' : 'Khởi tạo & Mở Checklist'}</span>
                     <ArrowRight className="w-4 h-4" />
@@ -372,7 +379,7 @@ export const PinAuthScreen: React.FC<PinAuthScreenProps> = ({
                   <span className="inline-flex items-center gap-1.5 text-[11px] font-mono px-2 py-0.5 rounded-md bg-indigo-500/15 text-indigo-300 border border-indigo-500/30">
                     {unlockedSnapshot.workspace.code}
                   </span>
-                  <h2 className="text-lg sm:text-xl font-bold text-white mt-1.5">
+                  <h2 className="text-lg sm:text-xl font-bold text-foreground mt-1.5">
                     {unlockedSnapshot.workspace.name}
                   </h2>
                   <p className="text-xs text-slate-400 mt-0.5">
@@ -402,7 +409,7 @@ export const PinAuthScreen: React.FC<PinAuthScreenProps> = ({
                       className="group flex items-center gap-3 p-3 rounded-xl bg-slate-950/80 hover:bg-indigo-600/15 border border-slate-800 hover:border-indigo-500/60 text-left transition cursor-pointer"
                     >
                       <div
-                        className="relative w-10 h-10 rounded-xl flex items-center justify-center font-bold text-xs text-white shrink-0 shadow-inner"
+                        className="relative w-10 h-10 rounded-xl flex items-center justify-center font-bold text-xs text-on-accent shrink-0 shadow-inner"
                         style={{ backgroundColor: member.color }}
                       >
                         {member.avatar}
@@ -414,7 +421,7 @@ export const PinAuthScreen: React.FC<PinAuthScreenProps> = ({
                         )}
                       </div>
                       <div className="min-w-0 flex-1">
-                        <div className="font-semibold text-sm text-white truncate group-hover:text-indigo-200">
+                        <div className="font-semibold text-sm text-foreground truncate group-hover:text-indigo-200">
                           {member.name}
                         </div>
                         <div className="text-[11px] text-slate-400 truncate">{member.role}</div>
@@ -447,7 +454,7 @@ export const PinAuthScreen: React.FC<PinAuthScreenProps> = ({
                         value={memberName}
                         onChange={(e) => setMemberName(e.target.value)}
                         placeholder="Tên của bạn"
-                        className="px-3 py-2 rounded-lg bg-slate-900 border border-slate-700 text-xs text-white focus:outline-none focus:border-indigo-500"
+                        className="px-3 py-2 rounded-lg bg-slate-900 border border-slate-700 text-xs text-foreground focus:outline-none focus:border-indigo-500"
                         autoFocus
                         required
                       />
@@ -456,21 +463,21 @@ export const PinAuthScreen: React.FC<PinAuthScreenProps> = ({
                         value={memberRole}
                         onChange={(e) => setMemberRole(e.target.value)}
                         placeholder="Vai trò (VD: Dev)"
-                        className="px-3 py-2 rounded-lg bg-slate-900 border border-slate-700 text-xs text-white focus:outline-none focus:border-indigo-500"
+                        className="px-3 py-2 rounded-lg bg-slate-900 border border-slate-700 text-xs text-foreground focus:outline-none focus:border-indigo-500"
                       />
                     </div>
                     <div className="flex items-center justify-end gap-2">
                       <button
                         type="button"
                         onClick={() => setAddingMember(false)}
-                        className="px-3 py-1.5 rounded-lg text-xs text-slate-400 hover:text-white cursor-pointer"
+                        className="px-3 py-1.5 rounded-lg text-xs text-slate-400 hover:text-foreground cursor-pointer"
                       >
                         Hủy
                       </button>
                       <button
                         type="submit"
                         disabled={busy}
-                        className="px-3.5 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-xs font-semibold text-white cursor-pointer"
+                        className="px-3.5 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-xs font-semibold text-on-accent cursor-pointer"
                       >
                         {busy ? 'Đang thêm...' : 'Thêm & Vào ngay'}
                       </button>

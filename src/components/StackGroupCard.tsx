@@ -97,7 +97,7 @@ export const StackGroupCard: React.FC<StackGroupCardProps> = ({
             onClick={() => onUpdateStack(stack.id, { collapsed: !stack.collapsed })}
             className="flex items-start gap-2.5 text-left group cursor-pointer min-w-0 flex-1"
           >
-            <span className="mt-0.5 p-1 rounded-lg bg-slate-800/80 text-slate-400 group-hover:text-white transition">
+            <span className="mt-0.5 p-1 rounded-lg bg-slate-800/80 text-slate-400 group-hover:text-foreground transition">
               {stack.collapsed ? (
                 <ChevronRight className="w-4 h-4" />
               ) : (
@@ -106,7 +106,7 @@ export const StackGroupCard: React.FC<StackGroupCardProps> = ({
             </span>
             <div className="min-w-0 flex-1">
               <div className="flex flex-wrap items-center gap-2">
-                <h3 className="font-bold text-sm sm:text-base text-white leading-snug">
+                <h3 className="font-bold text-sm sm:text-base text-foreground leading-snug">
                   {stack.title}
                 </h3>
                 {stats.percentage === 100 && stats.total > 0 && (
@@ -156,7 +156,7 @@ export const StackGroupCard: React.FC<StackGroupCardProps> = ({
                 disabled={stackIndex === 0}
                 onClick={() => onMoveStack(stack.id, 'up')}
                 title="Đưa Stack lên trên"
-                className="p-1 text-slate-400 hover:text-white disabled:opacity-30 cursor-pointer"
+                className="p-1 text-slate-400 hover:text-foreground disabled:opacity-30 cursor-pointer"
               >
                 <ChevronUp className="w-3.5 h-3.5" />
               </button>
@@ -165,7 +165,7 @@ export const StackGroupCard: React.FC<StackGroupCardProps> = ({
                 disabled={stackIndex === totalStacks - 1}
                 onClick={() => onMoveStack(stack.id, 'down')}
                 title="Đưa Stack xuống dưới"
-                className="p-1 text-slate-400 hover:text-white disabled:opacity-30 cursor-pointer"
+                className="p-1 text-slate-400 hover:text-foreground disabled:opacity-30 cursor-pointer"
               >
                 <ChevronDown className="w-3.5 h-3.5" />
               </button>
@@ -383,7 +383,7 @@ export const StackGroupCard: React.FC<StackGroupCardProps> = ({
                       {assignees.length === 1 ? (
                         <>
                           <span
-                            className="w-5 h-5 rounded-md text-[10px] font-bold text-white flex items-center justify-center"
+                            className="w-5 h-5 rounded-md text-[10px] font-bold text-on-accent flex items-center justify-center"
                             style={{ backgroundColor: assignees[0].color }}
                           >
                             {assignees[0].avatar}
@@ -404,7 +404,7 @@ export const StackGroupCard: React.FC<StackGroupCardProps> = ({
                             {visibleAvatars.map((member) => (
                               <span
                                 key={member.id}
-                                className="w-5 h-5 rounded-full text-[9px] font-bold text-white flex items-center justify-center ring-2 ring-slate-950"
+                                className="w-5 h-5 rounded-full text-[9px] font-bold text-on-accent flex items-center justify-center ring-2 ring-slate-950"
                                 style={{ backgroundColor: member.color }}
                               >
                                 {member.avatar}
@@ -448,7 +448,7 @@ export const StackGroupCard: React.FC<StackGroupCardProps> = ({
                 value={newTitle}
                 onChange={(e) => setNewTitle(e.target.value)}
                 placeholder="Thêm mục mới vào Stack này... (Nhấn Enter)"
-                className="w-full bg-transparent text-xs sm:text-sm text-white placeholder:text-slate-500 focus:outline-none py-1.5"
+                className="w-full bg-transparent text-xs sm:text-sm text-foreground placeholder:text-slate-500 focus:outline-none py-1.5"
               />
             </div>
 
@@ -470,7 +470,7 @@ export const StackGroupCard: React.FC<StackGroupCardProps> = ({
               <button
                 type="submit"
                 disabled={!newTitle.trim() || adding}
-                className="px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 disabled:opacity-40 text-xs font-semibold text-white transition cursor-pointer shrink-0"
+                className="px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 disabled:opacity-40 text-xs font-semibold text-on-accent transition cursor-pointer shrink-0"
               >
                 Thêm
               </button>

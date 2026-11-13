@@ -176,11 +176,11 @@ export const TeamAndCloudModal: React.FC<TeamAndCloudModalProps> = ({
       <div className="w-full max-w-xl bg-slate-900 border border-slate-800 rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[90dvh]">
         {/* Header */}
         <div className="px-5 py-4 border-b border-slate-800 flex items-center justify-between">
-          <h2 className="font-bold text-base text-white">Quản lý Nhóm, Đồng bộ Cloud &amp; App</h2>
+          <h2 className="font-bold text-base text-foreground">Quản lý Nhóm, Đồng bộ Cloud &amp; App</h2>
           <button
             type="button"
             onClick={onClose}
-            className="p-1.5 rounded-lg bg-slate-800 text-slate-300 hover:text-white cursor-pointer"
+            className="p-1.5 rounded-lg bg-slate-800 text-slate-300 hover:text-foreground cursor-pointer"
           >
             <X className="w-4 h-4" />
           </button>
@@ -197,7 +197,7 @@ export const TeamAndCloudModal: React.FC<TeamAndCloudModalProps> = ({
               }}
               className={`py-2 rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5 cursor-pointer ${
                 activeTab === 'team'
-                  ? 'bg-indigo-600 text-white'
+                  ? 'bg-indigo-600 text-on-accent'
                   : 'text-slate-400 hover:text-slate-200'
               }`}
             >
@@ -213,7 +213,7 @@ export const TeamAndCloudModal: React.FC<TeamAndCloudModalProps> = ({
             }}
             className={`py-2 rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5 cursor-pointer ${
               activeTab === 'cloud'
-                ? 'bg-indigo-600 text-white'
+                ? 'bg-indigo-600 text-on-accent'
                 : 'text-slate-400 hover:text-slate-200'
             }`}
           >
@@ -228,7 +228,7 @@ export const TeamAndCloudModal: React.FC<TeamAndCloudModalProps> = ({
             }}
             className={`py-2 rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5 cursor-pointer ${
               activeTab === 'app'
-                ? 'bg-indigo-600 text-white'
+                ? 'bg-indigo-600 text-on-accent'
                 : 'text-slate-400 hover:text-slate-200'
             }`}
           >
@@ -269,7 +269,7 @@ export const TeamAndCloudModal: React.FC<TeamAndCloudModalProps> = ({
                 <button
                   type="button"
                   onClick={() => void handleCopyInvite()}
-                  className="inline-flex items-center justify-center gap-1.5 px-3.5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-xs font-semibold text-white cursor-pointer shrink-0"
+                  className="inline-flex items-center justify-center gap-1.5 px-3.5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-xs font-semibold text-on-accent cursor-pointer shrink-0"
                 >
                   {copiedInvite ? <Check className="w-3.5 h-3.5" /> : <Share2 className="w-3.5 h-3.5" />}
                   {copiedInvite ? 'Đã chép Link + PIN!' : 'Sao chép Link mời nhóm'}
@@ -291,13 +291,13 @@ export const TeamAndCloudModal: React.FC<TeamAndCloudModalProps> = ({
                       >
                         <div className="flex items-center gap-2.5 min-w-0">
                           <span
-                            className="w-8 h-8 rounded-lg text-xs font-bold text-white flex items-center justify-center shrink-0"
+                            className="w-8 h-8 rounded-lg text-xs font-bold text-on-accent flex items-center justify-center shrink-0"
                             style={{ backgroundColor: m.color }}
                           >
                             {m.avatar}
                           </span>
                           <div className="min-w-0">
-                            <div className="text-xs sm:text-sm font-semibold text-white flex items-center gap-1.5">
+                            <div className="text-xs sm:text-sm font-semibold text-foreground flex items-center gap-1.5">
                               <span className="truncate">{m.name}</span>
                               {isMe && (
                                 <span className="text-[10px] px-1.5 py-0.5 rounded bg-indigo-500/20 text-indigo-300">
@@ -337,7 +337,7 @@ export const TeamAndCloudModal: React.FC<TeamAndCloudModalProps> = ({
                     value={newMemberName}
                     onChange={(e) => setNewMemberName(e.target.value)}
                     placeholder="Tên thành viên mới..."
-                    className="flex-1 px-3 py-2 rounded-xl bg-slate-950 border border-slate-700 text-xs text-white focus:outline-none focus:border-indigo-500"
+                    className="flex-1 px-3 py-2 rounded-xl bg-slate-950 border border-slate-700 text-xs text-foreground focus:outline-none focus:border-indigo-500"
                     required
                   />
                   <input
@@ -345,12 +345,12 @@ export const TeamAndCloudModal: React.FC<TeamAndCloudModalProps> = ({
                     value={newMemberRole}
                     onChange={(e) => setNewMemberRole(e.target.value)}
                     placeholder="Vai trò (Dev, Art, QA...)"
-                    className="sm:w-40 px-3 py-2 rounded-xl bg-slate-950 border border-slate-700 text-xs text-white focus:outline-none focus:border-indigo-500"
+                    className="sm:w-40 px-3 py-2 rounded-xl bg-slate-950 border border-slate-700 text-xs text-foreground focus:outline-none focus:border-indigo-500"
                   />
                   <button
                     type="submit"
                     disabled={busy}
-                    className="inline-flex items-center justify-center gap-1.5 px-3.5 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-xs font-semibold text-white cursor-pointer shrink-0"
+                    className="inline-flex items-center justify-center gap-1.5 px-3.5 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-xs font-semibold text-foreground cursor-pointer shrink-0"
                   >
                     <UserPlus className="w-3.5 h-3.5" />
                     Thêm
@@ -365,7 +365,7 @@ export const TeamAndCloudModal: React.FC<TeamAndCloudModalProps> = ({
             <div className="space-y-4">
               <div className="rounded-xl bg-slate-950 border border-slate-800 p-3.5 text-xs text-slate-300 space-y-2">
                 <div className="flex items-center justify-between">
-                  <span className="font-semibold text-white flex items-center gap-1.5">
+                  <span className="font-semibold text-foreground flex items-center gap-1.5">
                     <Database className="w-4 h-4 text-emerald-400" />
                     Trạng thái hiện tại:{' '}
                     {syncMode === 'supabase' ? (
@@ -400,7 +400,7 @@ export const TeamAndCloudModal: React.FC<TeamAndCloudModalProps> = ({
                     value={sbUrl}
                     onChange={(e) => setSbUrl(e.target.value)}
                     placeholder="https://xxxx.supabase.co"
-                    className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-700 text-xs font-mono text-white focus:outline-none focus:border-indigo-500"
+                    className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-700 text-xs font-mono text-foreground focus:outline-none focus:border-indigo-500"
                     required
                   />
                 </div>
@@ -413,7 +413,7 @@ export const TeamAndCloudModal: React.FC<TeamAndCloudModalProps> = ({
                     value={sbKey}
                     onChange={(e) => setSbKey(e.target.value)}
                     placeholder="eyJhbGciOiJIUzI1NiIsInR5cCI6..."
-                    className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-700 text-xs font-mono text-white focus:outline-none focus:border-indigo-500"
+                    className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-700 text-xs font-mono text-foreground focus:outline-none focus:border-indigo-500"
                     required
                   />
                 </div>
@@ -422,7 +422,7 @@ export const TeamAndCloudModal: React.FC<TeamAndCloudModalProps> = ({
                   <button
                     type="submit"
                     disabled={busy}
-                    className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-xs font-semibold text-white cursor-pointer"
+                    className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-xs font-semibold text-on-accent cursor-pointer"
                   >
                     {busy ? 'Đang kiểm tra...' : 'Kiểm tra & Lưu kết nối Cloud'}
                   </button>
@@ -432,7 +432,7 @@ export const TeamAndCloudModal: React.FC<TeamAndCloudModalProps> = ({
                       type="button"
                       disabled={busy}
                       onClick={() => void handlePushSnapshot()}
-                      className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-xs font-semibold text-white cursor-pointer"
+                      className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-xs font-semibold text-on-accent cursor-pointer"
                     >
                       <UploadCloud className="w-3.5 h-3.5" />
                       Đẩy dự án hiện tại lên Cloud
@@ -459,7 +459,7 @@ export const TeamAndCloudModal: React.FC<TeamAndCloudModalProps> = ({
               {deferredInstallPrompt && (
                 <div className="rounded-xl bg-indigo-600/15 border border-indigo-500/40 p-4 flex items-center justify-between gap-3">
                   <div>
-                    <div className="font-bold text-sm text-white">Cài đặt ứng dụng StackFlow ngay</div>
+                    <div className="font-bold text-sm text-foreground">Cài đặt ứng dụng StackFlow ngay</div>
                     <p className="text-slate-300 mt-0.5">
                       Chạy độc lập toàn màn hình như App gốc, mở 1 chạm từ màn hình chính.
                     </p>
@@ -467,7 +467,7 @@ export const TeamAndCloudModal: React.FC<TeamAndCloudModalProps> = ({
                   <button
                     type="button"
                     onClick={() => void onTriggerInstallPwa()}
-                    className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-semibold cursor-pointer shrink-0"
+                    className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-on-accent font-semibold cursor-pointer shrink-0"
                   >
                     <Download className="w-4 h-4" />
                     Cài đặt
@@ -476,7 +476,7 @@ export const TeamAndCloudModal: React.FC<TeamAndCloudModalProps> = ({
               )}
 
               <div className="rounded-xl bg-slate-950 border border-slate-800 p-4 space-y-3">
-                <div className="font-semibold text-white">1. Bản Android APK gốc (Capacitor)</div>
+                <div className="font-semibold text-foreground">1. Bản Android APK gốc (Capacitor)</div>
                 <p className="text-slate-400">
                   Tải trực tiếp file <code className="text-indigo-300">StackFlow-Checklist.apk</code> để cài lên
                   điện thoại Android hoặc gửi qua Zalo/Telegram cho cả nhóm:
@@ -485,7 +485,7 @@ export const TeamAndCloudModal: React.FC<TeamAndCloudModalProps> = ({
                   href="https://github.com/CnqC/stackflow-checklist/releases/latest/download/StackFlow-Checklist.apk"
                   target="_blank"
                   rel="noreferrer"
-                  className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-semibold text-xs transition"
+                  className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-on-accent font-semibold text-xs transition"
                 >
                   <Download className="w-4 h-4" />
                   Tải xuống StackFlow-Checklist.apk (Android)
@@ -493,7 +493,7 @@ export const TeamAndCloudModal: React.FC<TeamAndCloudModalProps> = ({
               </div>
 
               <div className="rounded-xl bg-slate-950 border border-slate-800 p-4 space-y-2">
-                <div className="font-semibold text-white">2. Bản iPhone / iPad và máy tính</div>
+                <div className="font-semibold text-foreground">2. Bản iPhone / iPad và máy tính</div>
                 <p className="text-slate-400">
                   Trên Safari iPhone: Bấm nút <strong>Chia sẻ (Share)</strong> ở cạnh dưới → Chọn{' '}
                   <strong>Thêm vào Màn hình chính (Add to Home Screen)</strong>. Ứng dụng sẽ hiển thị biểu tượng

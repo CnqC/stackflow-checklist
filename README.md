@@ -17,11 +17,12 @@
   - Tick hoàn thành 1 chạm với Optimistic UI (0ms độ trễ), tự động ghi nhận `✓ [Tên thành viên] đã hoàn thành`.
   - **Nhiều người cùng làm 1 đầu việc (`Người cùng làm`)**: Bấm chạm trực tiếp vào các thẻ tên thành viên để chọn nhiều bạn cùng phụ trách chung 1 đầu việc lớn.
   - **Chia phần việc nhỏ ngay trong mục (`Chia phần việc nhỏ trong mục này`)**: Tách một việc lớn thành nhiều bước nhỏ và gắn tên từng bạn phụ trách riêng cho từng bước ngay bên trong đầu việc đó.
-  - **Chuông báo việc mới trên thiết bị và tab Web**: Mở biểu tượng chuông và chủ động bật quyền thông báo. Khi ứng dụng đang kết nối, việc mới được giao sẽ hiện trong hộp chuông và trên Android hoặc trình duyệt nếu đã cấp quyền. Bấm thông báo để mở đúng đầu việc. Tab Web hiện số chưa đọc và Stack mới nhất, ví dụ `(3) StackFlow — Stack 2`.
-    - Hộp chuông tách thông báo chưa đọc/đã đọc, có nút tắt riêng báo trên thiết bị và chỉ xóa lịch sử đã đọc. Khi mở lại app, hệ thống đối chiếu mốc công việc đã lưu trên thiết bị này để tìm việc mới.
-    - Thông báo khi app/trang Web đã đóng cần cấu hình Supabase, Firebase và Web Push theo [`PUSH_SETUP.md`](./PUSH_SETUP.md). Khi chưa cấu hình, app sẽ báo rõ trong hộp chuông và cập nhật việc mới lúc mở lại.
+  - **Chuông báo việc mới trên thiết bị và tab Web**: Hộp chuông hiển thị việc mới được giao; quyền thông báo trên thiết bị được bật trong **Cài đặt → Thông báo**. Khi ứng dụng đang kết nối, việc mới sẽ hiện trên Android hoặc trình duyệt nếu đã cấp quyền. Bấm thông báo để mở đúng đầu việc. Tab Web hiện số chưa đọc và Stack mới nhất, ví dụ `(3) StackFlow — Stack 2`.
+    - Hộp chuông tách thông báo chưa đọc/đã đọc và chỉ xóa lịch sử đã đọc. Khi mở lại app, hệ thống đối chiếu mốc công việc đã lưu trên thiết bị này để tìm việc mới.
+    - Thông báo khi app/trang Web đã đóng cần cấu hình Supabase, Firebase và Web Push theo [`PUSH_SETUP.md`](./PUSH_SETUP.md). Khi chưa cấu hình, trạng thái push được báo trong Cài đặt và cập nhật việc mới lúc mở lại.
     - Quy tắc kỹ thuật và giới hạn được ghi tại [`NOTIFICATIONS.md`](./NOTIFICATIONS.md).
-    - Bấm **chuông → bánh răng Cài đặt** để bật/tắt âm khi web đang mở, chọn một trong 10 âm báo, nghe thử, chỉnh âm lượng và bật/tắt số việc trên tab. Âm riêng chỉ phát khi trang đang hiển thị và trình duyệt cho phép; khi trang đã đóng, âm thông báo do trình duyệt/điện thoại quyết định.
+    - Trong **Cài đặt → Thông báo**, bật/tắt âm khi web đang mở, chọn một trong 10 âm báo, nghe thử, chỉnh âm lượng và bật/tắt số việc trên tab. Âm riêng chỉ phát khi trang đang hiển thị và trình duyệt cho phép; khi trang đã đóng, âm thông báo do trình duyệt/điện thoại quyết định.
+  - **Cài đặt giao diện toàn ứng dụng**: Nút Cài đặt riêng nằm dưới danh sách thành viên trên máy tính và cạnh chuông trên điện thoại. Chọn Sáng, Tối, Theo thiết bị, Theo giờ địa phương hoặc một trong 7 theme màu. Lựa chọn lưu trên thiết bị, áp dụng cả màn hình PIN, Web và PWA.
   - Đổi trạng thái (`Cần làm`, `Đang làm`, `Đang kẹt`, `Hoàn thành`), mức ưu tiên, hạn chót (`Deadline`), ghi chú và **Link đính kèm** (GitHub, Figma, Notion, Drive...).
   - Bộ lọc nhanh **`Việc của tôi`** (tự động gom cả việc chính lẫn phần việc nhỏ bạn được giao), tìm kiếm tức thì và **Nhật ký hoạt động trực tiếp**.
 - **Kiến trúc Đồng bộ Kép (`Dual-Engine Realtime Sync`)**:
@@ -52,7 +53,7 @@ npm test
 1. Tạo một project miễn phí tại [https://supabase.com](https://supabase.com).
 2. Vào mục **SQL Editor** trên Supabase Dashboard, dán toàn bộ nội dung file [`supabase/schema.sql`](./supabase/schema.sql) (hoặc bấm nút **"Sao chép mã khởi tạo bảng"** ngay trong ứng dụng) và nhấn **Run**.
 3. Lấy `Project URL` và `Anon / Publishable Key` trong mục **Project Settings → API**:
-   - **Cách 1 (Ngay trên giao diện App/Web)**: Bấm nút **`Đồng bộ Local / Cloud`** → dán URL & Key → bấm **Kiểm tra & Lưu kết nối Cloud**.
+   - **Cách 1 (Ngay trên giao diện App/Web)**: Mở **Cài đặt → Ứng dụng → Đồng bộ dữ liệu** → dán URL & Key → bấm **Kiểm tra & Lưu kết nối Cloud**.
    - **Cách 2 (Cấu hình cố định khi Deploy Web / Build APK)**: Tạo file `.env` từ `.env.example`:
      ```env
      VITE_SUPABASE_URL=https://your-project.supabase.co
@@ -66,7 +67,7 @@ npm test
 - **Triển khai Web + PWA (iOS / Android / Máy tính)**:
   - Đẩy repo lên Vercel / Cloudflare Pages / Netlify (`npm run build`, thư mục xuất: `dist`).
   - Trên **iPhone (Safari)**: Mở link Web → bấm **Chia sẻ** → **Thêm vào Màn hình chính**.
-  - Trên **Android / Chrome / Edge**: Bấm nút **Cài đặt ứng dụng StackFlow** ngay trong mục `Cài đặt App`.
+  - Trên **Android / Chrome / Edge**: Bấm nút **Cài đặt ứng dụng StackFlow** trong **Cài đặt → Ứng dụng → Cài đặt ứng dụng**.
 - **Đồng bộ & Xuất bản Android APK gốc (Capacitor)**:
   ```bash
   npm run cap:sync

@@ -56,7 +56,7 @@ export const ActivityPanel: React.FC<ActivityPanelProps> = ({ activities }) => {
               className="flex items-start gap-2.5 text-xs pb-2.5 border-b border-slate-800/60 last:border-b-0 last:pb-0"
             >
               <span
-                className="w-6 h-6 rounded-lg text-[10px] font-bold text-white flex items-center justify-center shrink-0 mt-0.5"
+                className="w-6 h-6 rounded-lg text-[10px] font-bold text-on-accent flex items-center justify-center shrink-0 mt-0.5"
                 style={{ backgroundColor: act.actorColor }}
               >
                 {act.actorName.slice(0, 2).toUpperCase()}
@@ -64,7 +64,7 @@ export const ActivityPanel: React.FC<ActivityPanelProps> = ({ activities }) => {
               <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-1.5 text-slate-200">
                   {getActionBadge(act.actionType)}
-                  <strong className="font-semibold text-white">{act.actorName}</strong>
+                  <strong className="font-semibold text-foreground">{act.actorName}</strong>
                   <span className="text-slate-400 truncate">• {act.detail}</span>
                 </div>
                 <p className="text-slate-300 mt-0.5 break-words font-medium">

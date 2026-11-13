@@ -32,9 +32,9 @@ export function NotificationSettings({ workspaceId, memberId }: Props) {
   };
 
   return (
-    <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4 space-y-5 text-slate-200">
+    <div className="space-y-5 text-slate-200">
       <section className="space-y-2">
-        <h3 className="text-xs font-bold text-white">Âm báo trong ứng dụng</h3>
+        <h3 className="text-xs font-bold text-foreground">Âm báo trong ứng dụng</h3>
         <label className="flex items-center justify-between gap-3 rounded-xl border border-slate-700 bg-slate-800/70 px-3 py-3 cursor-pointer">
           <span className="flex items-center gap-2 text-xs font-medium">
             {preferences.soundEnabled ? <Volume2 className="w-4 h-4 text-indigo-300" /> : <VolumeX className="w-4 h-4 text-slate-400" />}
@@ -48,12 +48,12 @@ export function NotificationSettings({ workspaceId, memberId }: Props) {
             className="h-4 w-4 accent-indigo-500" />
         </label>
         <p className="text-[11px] leading-relaxed text-slate-400">
-          Chỉ phát khi trang hoặc ứng dụng Windows đang hiển thị. Tắt ở đây sẽ dừng cả âm đang phát; thông báo nổi trên thiết bị có công tắc riêng phía trên.
+          Chỉ phát khi trang hoặc ứng dụng Windows đang hiển thị. Tắt ở đây sẽ dừng cả âm đang phát; thông báo nổi trên thiết bị có công tắc riêng trong mục này.
         </p>
       </section>
 
       <section className="space-y-2">
-        <h3 className="text-xs font-bold text-white">Chọn âm báo</h3>
+        <h3 className="text-xs font-bold text-foreground">Chọn âm báo</h3>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
           {NOTIFICATION_SOUNDS.map((sound, index) => (
             <div key={sound.id} className={`flex items-center gap-1 rounded-xl border px-2 py-1.5 ${preferences.soundId === sound.id ? 'border-indigo-500/70 bg-indigo-500/15' : 'border-slate-700 bg-slate-800/60'}`}>
@@ -85,7 +85,7 @@ export function NotificationSettings({ workspaceId, memberId }: Props) {
       </section>
 
       <section className="space-y-2 border-t border-slate-800 pt-4">
-        <h3 className="text-xs font-bold text-white">Hiển thị thông báo</h3>
+        <h3 className="text-xs font-bold text-foreground">Hiển thị thông báo</h3>
         <label className="flex items-center justify-between gap-3 rounded-xl border border-slate-700 bg-slate-800/70 px-3 py-3 cursor-pointer">
           <span className="text-xs font-medium">Hiện số việc mới trên tab trình duyệt</span>
           <input type="checkbox" checked={preferences.tabBadgeEnabled}
@@ -93,7 +93,7 @@ export function NotificationSettings({ workspaceId, memberId }: Props) {
             className="h-4 w-4 accent-indigo-500" />
         </label>
         <p className="text-[11px] leading-relaxed text-slate-400">
-          Nút “Báo trên thiết bị” phía trên điều khiển thông báo nổi. Kiểu thanh thông báo và âm khi đóng trang do trình duyệt hoặc điện thoại quản lý. Hộp chuông luôn giữ các việc mới.
+          Công tắc thông báo trên thiết bị ở đầu mục này điều khiển thông báo nổi. Kiểu thanh thông báo và âm khi đóng trang do trình duyệt hoặc điện thoại quản lý. Hộp chuông luôn giữ các việc mới.
         </p>
       </section>
     </div>

@@ -2,7 +2,6 @@ import React, { useEffect, useMemo, useState } from 'react';
 import {
   Activity,
   CheckSquare,
-  Cloud,
   Filter,
   FolderPlus,
   Layers,
@@ -10,12 +9,14 @@ import {
   LogOut,
   Plus,
   Search,
+  Settings2,
   Share2,
   UserCheck,
   Users,
   X,
 } from 'lucide-react';
 import { ActivityPanel } from './components/ActivityPanel';
+import { AppSettingsModal } from './components/AppSettingsModal';
 import { NotificationBell } from './components/NotificationBell';
 import { PinAuthScreen } from './components/PinAuthScreen';
 import { StackGroupCard } from './components/StackGroupCard';
@@ -74,6 +75,7 @@ export function App() {
   const [newStackColor, setNewStackColor] = useState(STACK_PALETTE[0]);
 
   const [modalOpen, setModalOpen] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
   const [modalTab, setModalTab] = useState<'team' | 'cloud' | 'app'>('team');
   const [toast, setToast] = useState<string | null>(null);
   const [deferredInstallPrompt, setDeferredInstallPrompt] =
@@ -341,6 +343,7 @@ export function App() {
             setModalTab('cloud');
             setModalOpen(true);
           }}
+          onOpenSettings={() => setSettingsOpen(true)}
         />
         <TeamAndCloudModal
           open={modalOpen}
@@ -354,6 +357,9 @@ export function App() {
           deferredInstallPrompt={deferredInstallPrompt}
           onTriggerInstallPwa={handleTriggerInstallPwa}
         />
+        <AppSettingsModal open={settingsOpen} onClose={() => setSettingsOpen(false)} snapshot={snapshot} memberId={currentMember?.id ?? null} syncMode={syncMode}
+          onOpenCloud={() => { setSettingsOpen(false); setModalTab('cloud'); setModalOpen(true); }}
+          onOpenInstall={() => { setSettingsOpen(false); setModalTab('app'); setModalOpen(true); }} />
       </>
     );
   }
@@ -375,10 +381,10 @@ export function App() {
   };
 
   return (
-    <div className="min-h-dvh bg-[#090d16] text-slate-100 flex flex-col lg:flex-row safe-top">
+    <div className="min-h-dvh bg-slate-950 text-slate-100 flex flex-col lg:flex-row safe-top">
       {/* Toast Notification */}
       {toast && (
-        <div className="fixed top-4 left-1/2 -translate-x-1/2 z-50 px-4 py-2.5 rounded-xl bg-slate-900 border border-indigo-500/50 text-xs sm:text-sm font-medium text-white shadow-2xl flex items-center gap-2">
+        <div className="fixed top-4 left-1/2 -translate-x-1/2 z-50 px-4 py-2.5 rounded-xl bg-slate-900 border border-indigo-500/50 text-xs sm:text-sm font-medium text-foreground shadow-2xl flex items-center gap-2">
           <Lock className="w-4 h-4 text-amber-400 shrink-0" />
           <span>{toast}</span>
         </div>
@@ -393,13 +399,13 @@ export function App() {
           <div className="flex items-start justify-between gap-2">
             <div className="flex items-center gap-2.5 min-w-0">
               <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-indigo-500 to-sky-500 flex items-center justify-center shrink-0 shadow-lg shadow-indigo-500/20">
-                <Layers className="w-5 h-5 text-white" />
+                <Layers className="w-5 h-5 text-on-accent" />
               </div>
               <div className="min-w-0">
                 <div className="text-[11px] font-mono text-indigo-400">
                   {snapshot.workspace.code}
                 </div>
-                <h1 className="font-bold text-sm text-white truncate" title={snapshot.workspace.name}>
+                <h1 className="font-bold text-sm text-foreground truncate" title={snapshot.workspace.name}>
                   {snapshot.workspace.name}
                 </h1>
               </div>
@@ -423,7 +429,7 @@ export function App() {
             <div className="flex items-end justify-between">
               <div>
                 <div className="text-xs text-slate-400">Tiến độ toàn dự án</div>
-                <div className="text-2xl font-extrabold text-white mt-0.5 tabular-nums">
+                <div className="text-2xl font-extrabold text-foreground mt-0.5 tabular-nums">
                   {overallStats.percentage}%
                 </div>
               </div>
@@ -533,13 +539,13 @@ export function App() {
                     onClick={() => setAssigneeFilterId(isSelected ? null : m.id)}
                     className={`w-full flex items-center justify-between gap-2 px-2.5 py-2 rounded-xl text-left transition cursor-pointer border ${
                       isSelected
-                        ? 'bg-indigo-600/20 border-indigo-500/50 text-white'
+                        ? 'bg-indigo-600/20 border-indigo-500/50 text-foreground'
                         : 'bg-transparent border-transparent hover:bg-slate-900 text-slate-300'
                     }`}
                   >
                     <div className="flex items-center gap-2.5 min-w-0">
                       <div
-                        className="relative w-7 h-7 rounded-lg text-[10px] font-bold text-white flex items-center justify-center shrink-0"
+                        className="relative w-7 h-7 rounded-lg text-[10px] font-bold text-on-accent flex items-center justify-center shrink-0"
                         style={{ backgroundColor: m.color }}
                       >
                         {m.avatar}
@@ -568,32 +574,21 @@ export function App() {
         <div className="pt-4 mt-4 border-t border-slate-800/80 space-y-2.5">
           <button
             type="button"
-            onClick={() => {
-              setModalTab('cloud');
-              setModalOpen(true);
-            }}
+            onClick={() => setSettingsOpen(true)}
             className="w-full flex items-center justify-between px-3 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 border border-slate-800 text-xs cursor-pointer"
           >
             <span className="inline-flex items-center gap-2 text-slate-200 font-medium">
-              <Cloud
-                className={`w-4 h-4 ${
-                  syncMode !== 'local' ? 'text-emerald-400' : 'text-amber-400'
-                }`}
-              />
-              {syncMode === 'supabase'
-                ? 'Supabase Cloud: Bật'
-                : syncMode === 'relay'
-                  ? 'Internet E2EE: Trực tuyến'
-                  : 'Đồng bộ Local / Cloud'}
+              <Settings2 className="w-4 h-4 text-indigo-400" />
+              Cài đặt
             </span>
-            <span className="text-[11px] text-indigo-400">Cấu hình</span>
+            <span className="text-[11px] text-indigo-400">Giao diện · Thông báo</span>
           </button>
 
           <div className="flex items-center justify-between gap-2 px-1">
             <button
               type="button"
               onClick={handleSwitchMemberOnly}
-              className="text-xs text-slate-400 hover:text-white cursor-pointer"
+              className="text-xs text-slate-400 hover:text-foreground cursor-pointer"
             >
               Đổi thành viên ({currentMember.name})
             </button>
@@ -617,11 +612,11 @@ export function App() {
         <div className="flex items-center justify-between gap-2">
           <div className="flex items-center gap-2.5 min-w-0">
             <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-indigo-500 to-sky-500 flex items-center justify-center shrink-0">
-              <Layers className="w-4 h-4 text-white" />
+              <Layers className="w-4 h-4 text-on-accent" />
             </div>
             <div className="min-w-0">
               <div className="flex items-center gap-1.5">
-                <h1 className="font-bold text-sm text-white truncate">
+                <h1 className="font-bold text-sm text-foreground truncate">
                   {snapshot.workspace.name}
                 </h1>
                 <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-indigo-500/15 text-indigo-300 shrink-0">
@@ -639,16 +634,17 @@ export function App() {
           <div className="flex items-center gap-1.5 shrink-0">
             <NotificationBell
               snapshot={snapshot}
-              syncMode={syncMode}
               memberId={currentMember.id}
               memberName={currentMember.name}
               onOpenTask={handleOpenTaskFromNotice}
               compact
             />
+            <button type="button" onClick={() => setSettingsOpen(true)} aria-label="Mở cài đặt" title="Cài đặt"
+              className="p-2 rounded-xl bg-slate-900 hover:bg-slate-800 border border-slate-700 text-indigo-400 cursor-pointer"><Settings2 className="w-4 h-4" /></button>
             <button
               type="button"
               onClick={() => setShowAddStack(true)}
-              className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl bg-indigo-600 text-xs font-semibold text-white cursor-pointer"
+              className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl bg-indigo-600 text-xs font-semibold text-on-accent cursor-pointer"
             >
               <Plus className="w-3.5 h-3.5" />
               Stack
@@ -657,7 +653,7 @@ export function App() {
               type="button"
               onClick={handleSwitchMemberOnly}
               title={`Đang dùng tên: ${currentMember.name}`}
-              className="w-8 h-8 rounded-xl text-xs font-bold text-white flex items-center justify-center cursor-pointer"
+              className="w-8 h-8 rounded-xl text-xs font-bold text-on-accent flex items-center justify-center cursor-pointer"
               style={{ backgroundColor: currentMember.color }}
             >
               {currentMember.avatar}
@@ -695,13 +691,13 @@ export function App() {
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   placeholder="Tìm kiếm đầu việc hoặc ghi chú..."
-                  className="w-full pl-9 pr-8 py-2 rounded-xl bg-slate-900 border border-slate-800 text-xs sm:text-sm text-white placeholder:text-slate-500 focus:outline-none focus:border-indigo-500"
+                  className="w-full pl-9 pr-8 py-2 rounded-xl bg-slate-900 border border-slate-800 text-xs sm:text-sm text-foreground placeholder:text-slate-500 focus:outline-none focus:border-indigo-500"
                 />
                 {searchQuery && (
                   <button
                     type="button"
                     onClick={() => setSearchQuery('')}
-                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-500 hover:text-white cursor-pointer"
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-500 hover:text-foreground cursor-pointer"
                   >
                     <X className="w-3.5 h-3.5" />
                   </button>
@@ -711,7 +707,6 @@ export function App() {
               <div className="hidden lg:flex items-center gap-2">
                 <NotificationBell
                   snapshot={snapshot}
-                  syncMode={syncMode}
                   memberId={currentMember.id}
                   memberName={currentMember.name}
                   onOpenTask={handleOpenTaskFromNotice}
@@ -730,7 +725,7 @@ export function App() {
                 <button
                   type="button"
                   onClick={() => setShowAddStack(true)}
-                  className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-xs font-semibold text-white shadow-lg shadow-indigo-600/20 cursor-pointer"
+                  className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-xs font-semibold text-on-accent shadow-lg shadow-indigo-600/20 cursor-pointer"
                 >
                   <FolderPlus className="w-4 h-4" />
                   Thêm Stack mới
@@ -764,7 +759,7 @@ export function App() {
                     }}
                     className={`px-3 py-1.5 rounded-xl text-xs font-medium whitespace-nowrap border transition cursor-pointer ${
                       active
-                        ? 'bg-indigo-600 text-white border-indigo-500 shadow-sm'
+                        ? 'bg-indigo-600 text-on-accent border-indigo-500 shadow-sm'
                         : 'bg-slate-900/80 text-slate-400 border-slate-800 hover:text-slate-200'
                     }`}
                   >
@@ -781,11 +776,11 @@ export function App() {
                 className="rounded-2xl bg-slate-900 border border-indigo-500/40 p-4 sm:p-5 space-y-3.5 shadow-xl"
               >
                 <div className="flex items-center justify-between">
-                  <h3 className="font-bold text-sm text-white">Tạo Stack / Giai đoạn mới</h3>
+                  <h3 className="font-bold text-sm text-foreground">Tạo Stack / Giai đoạn mới</h3>
                   <button
                     type="button"
                     onClick={() => setShowAddStack(false)}
-                    className="text-slate-400 hover:text-white cursor-pointer"
+                    className="text-slate-400 hover:text-foreground cursor-pointer"
                   >
                     <X className="w-4 h-4" />
                   </button>
@@ -797,7 +792,7 @@ export function App() {
                     value={newStackTitle}
                     onChange={(e) => setNewStackTitle(e.target.value)}
                     placeholder="VD: Stack 5 — Phát hành & Marketing"
-                    className="px-3.5 py-2 rounded-xl bg-slate-950 border border-slate-700 text-sm text-white focus:outline-none focus:border-indigo-500"
+                    className="px-3.5 py-2 rounded-xl bg-slate-950 border border-slate-700 text-sm text-foreground focus:outline-none focus:border-indigo-500"
                     autoFocus
                     required
                   />
@@ -806,7 +801,7 @@ export function App() {
                     value={newStackDesc}
                     onChange={(e) => setNewStackDesc(e.target.value)}
                     placeholder="Mô tả ngắn mục tiêu của Stack này (tuỳ chọn)"
-                    className="px-3.5 py-2 rounded-xl bg-slate-950 border border-slate-700 text-sm text-white focus:outline-none focus:border-indigo-500"
+                    className="px-3.5 py-2 rounded-xl bg-slate-950 border border-slate-700 text-sm text-foreground focus:outline-none focus:border-indigo-500"
                   />
                 </div>
 
@@ -841,13 +836,13 @@ export function App() {
                     <button
                       type="button"
                       onClick={() => setShowAddStack(false)}
-                      className="px-3 py-1.5 rounded-xl text-xs text-slate-400 hover:text-white cursor-pointer"
+                      className="px-3 py-1.5 rounded-xl text-xs text-slate-400 hover:text-foreground cursor-pointer"
                     >
                       Hủy
                     </button>
                     <button
                       type="submit"
-                      className="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-xs font-semibold text-white cursor-pointer"
+                      className="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-xs font-semibold text-on-accent cursor-pointer"
                     >
                       Tạo Stack
                     </button>
@@ -860,7 +855,7 @@ export function App() {
             {snapshot.stacks.length === 0 ? (
               <div className="rounded-2xl bg-slate-900/60 border border-dashed border-slate-800 p-10 text-center space-y-3">
                 <Layers className="w-8 h-8 text-indigo-400 mx-auto" />
-                <div className="text-sm font-semibold text-white">
+                <div className="text-sm font-semibold text-foreground">
                   Dự án chưa có Stack công việc nào
                 </div>
                 <p className="text-xs text-slate-400 max-w-md mx-auto">
@@ -870,7 +865,7 @@ export function App() {
                 <button
                   type="button"
                   onClick={() => setShowAddStack(true)}
-                  className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-xs font-semibold text-white cursor-pointer"
+                  className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-xs font-semibold text-on-accent cursor-pointer"
                 >
                   <Plus className="w-4 h-4" />
                   Tạo Stack đầu tiên
@@ -1017,6 +1012,9 @@ export function App() {
         deferredInstallPrompt={deferredInstallPrompt}
         onTriggerInstallPwa={handleTriggerInstallPwa}
       />
+      <AppSettingsModal open={settingsOpen} onClose={() => setSettingsOpen(false)} snapshot={snapshot} memberId={currentMember.id} syncMode={syncMode}
+        onOpenCloud={() => { setSettingsOpen(false); setModalTab('cloud'); setModalOpen(true); }}
+        onOpenInstall={() => { setSettingsOpen(false); setModalTab('app'); setModalOpen(true); }} />
     </div>
   );
 }
