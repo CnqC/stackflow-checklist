@@ -12,9 +12,13 @@ import {
   type ProjectTable,
 } from '../../core/domain/accountProject';
 import { sortProjectStacks, STACK_PALETTE, STACK_PRIORITY_LABELS, type StackSort } from '../../core/domain/accountStack';
+import { toV2WorkspaceSnapshot } from '../../core/domain/accountV2Snapshot';
+import { saveV2Item } from '../../infrastructure/projects/accountV2Actions';
+import { StackGroupCard } from '../StackGroupCard';
+import { TaskDetailDrawer } from '../TaskDetailDrawer';
+import { ActivityPanel } from '../ActivityPanel';
 import type { AccountIdentity } from '../../infrastructure/auth/accountAuthService';
 import { accountProjectRepository } from '../../infrastructure/projects/accountProjectRepository';
-import { AccountActivityPanel } from './AccountActivityPanel';
 import { AccountNoticeBell } from './AccountNoticeBell';
 
 interface Props {
@@ -356,6 +360,21 @@ export function ProjectWorkspace({ projectId, identity, onBack, onSettings }: Pr
     }
   }
 
+  async function mutateForV2(action: () => Promise<unknown>): Promise<void> {
+    setBusy(true);
+    setError(null);
+    try {
+      await action();
+      await refresh();
+    } catch (cause) {
+      setError(errorMessage(cause));
+      await refresh().catch(() => undefined);
+      throw cause;
+    } finally {
+      setBusy(false);
+    }
+  }
+
   async function addStack(event: FormEvent) {
     event.preventDefault();
     const success = await mutate(() => accountProjectRepository.addStack({
@@ -391,6 +410,9 @@ export function ProjectWorkspace({ projectId, identity, onBack, onSettings }: Pr
 
   const stacks = sortProjectStacks(data.stacks, stackSort);
   const manualStacks = sortProjectStacks(data.stacks, 'position');
+  const v2Snapshot = toV2WorkspaceSnapshot(data);
+  const v2Actor = v2Snapshot.members.find((member) => member.id === actor?.id);
+  const selectedV2Item = v2Snapshot.items.find((item) => item.id === selectedTaskId) ?? null;
   const mineIds = new Set(data.assignees.filter((entry) => entry.member_id === actor?.id).map((entry) => entry.task_id));
   const mySubtaskIds = new Set(data.subtasks.filter((entry) => entry.assignee_member_id === actor?.id).map((entry) => entry.task_id));
   const mineCount = data.tasks.filter((task) => !task.completed && (mineIds.has(task.id) || mySubtaskIds.has(task.id))).length;
@@ -505,7 +527,28 @@ export function ProjectWorkspace({ projectId, identity, onBack, onSettings }: Pr
     </section>
 
     <div className="mt-6 space-y-4">
-      {stacks.map((stack) => <section key={stack.id} id={`stack-${stack.id}`} className="scroll-mt-4 overflow-hidden rounded-2xl border border-slate-700 bg-slate-900/80 p-4 shadow-lg shadow-black/20" style={{ borderTopColor: stack.color, borderTopWidth: 3 }}>
+      {v2Actor && stacks.map((stack, index) => {
+        const v2Stack = v2Snapshot.stacks.find((entry) => entry.id === stack.id)!;
+        const stackItems = v2Snapshot.items.filter((item) => item.stackId === stack.id);
+        const visibleIds = new Set(visibleTasks(stack.id).map((task) => task.id));
+        return <div key={stack.id} id={`stack-${stack.id}`} className="scroll-mt-20 space-y-2">
+          <div className="flex justify-end"><select aria-label={`Mức độ ưu tiên của ${stack.title}`} value={stack.priority} disabled={busy} onChange={(event) => void mutate(() => accountProjectRepository.updateStack(stack.id, stack.version, { priority: event.target.value as ProjectStack['priority'] }))} className="rounded-lg border border-slate-700 bg-slate-900 px-2 py-1 text-xs text-slate-300"><option value="low">Ưu tiên thấp</option><option value="medium">Ưu tiên trung bình</option><option value="high">Ưu tiên cao</option></select></div>
+          <StackGroupCard stack={v2Stack} stackIndex={index} totalStacks={stacks.length} allStackItems={stackItems} visibleItems={stackItems.filter((item) => visibleIds.has(item.id))} members={v2Snapshot.members} currentMember={v2Actor} allowManualMove={stackSort === 'position'} canDeleteStack={actor?.access_role === 'owner'}
+            onToggleItem={(item) => { const saved = data.tasks.find((task) => task.id === item.id); if (saved) void mutate(() => accountProjectRepository.updateTask(saved.id, saved.version, { completed: !saved.completed })); }}
+            onSelectItem={(item) => setSelectedTaskId(item.id)}
+            onQuickAddItem={async (stackId, title, assigneeId, assigneeIds) => mutateForV2(() => accountProjectRepository.addTask({ projectId, stackId, title, assigneeIds: assigneeIds ?? (assigneeId ? [assigneeId] : []) }))}
+            onUpdateStack={(id, patch) => { const saved = data.stacks.find((entry) => entry.id === id); if (saved) void mutate(() => accountProjectRepository.updateStack(id, saved.version, {
+              ...(patch.title !== undefined ? { title: patch.title } : {}),
+              ...(patch.description !== undefined ? { description: patch.description } : {}),
+              ...(patch.sequentialLock !== undefined ? { sequential_lock: patch.sequentialLock } : {}),
+              ...(patch.collapsed !== undefined ? { collapsed: patch.collapsed } : {}),
+            })); }}
+            onMoveStack={(id, direction) => { const saved = data.stacks.find((entry) => entry.id === id); if (saved) void mutate(() => accountProjectRepository.moveStack(id, saved.version, direction)); }}
+            onDeleteStack={(id) => { const saved = data.stacks.find((entry) => entry.id === id); if (saved) void mutate(() => accountProjectRepository.deleteStack(id, saved.version)); }}
+            onNotifyBlockedSequence={(title) => setError(`Stack tuần tự: Hãy hoàn thành “${title}” trước.`)} />
+        </div>;
+      })}
+      {!v2Actor && stacks.map((stack) => <section key={stack.id} id={`stack-${stack.id}`} className="scroll-mt-4 overflow-hidden rounded-2xl border border-slate-700 bg-slate-900/80 p-4 shadow-lg shadow-black/20" style={{ borderTopColor: stack.color, borderTopWidth: 3 }}>
         <div className="flex flex-wrap items-center justify-between gap-2"><button type="button" onClick={() => void mutate(() => accountProjectRepository.updateStack(stack.id, stack.version, { collapsed: !stack.collapsed }))} className="flex min-w-0 items-center gap-2 text-left text-foreground">{stack.collapsed ? <ChevronRight className="h-4 w-4 shrink-0" /> : <ChevronDown className="h-4 w-4 shrink-0" />}<span><span className="block font-bold">{stack.title}</span><span className="mt-1 block text-xs text-slate-400">{stack.description || `${data.tasks.filter((task) => task.stack_id === stack.id).length} việc`}</span></span></button><div className="flex flex-wrap items-center gap-2">
           {actor ? <select aria-label={`Mức độ ưu tiên của ${stack.title}`} value={stack.priority} disabled={busy} onChange={(event) => void mutate(() => accountProjectRepository.updateStack(stack.id, stack.version, { priority: event.target.value as ProjectStack['priority'] }))} className="rounded-lg border border-slate-700 bg-slate-950 px-2 py-1 text-xs text-slate-200"><option value="low">Ưu tiên thấp</option><option value="medium">Ưu tiên trung bình</option><option value="high">Ưu tiên cao</option></select> : <span className="rounded-lg border border-slate-700 px-2 py-1 text-xs text-slate-300">Ưu tiên {STACK_PRIORITY_LABELS[stack.priority].toLowerCase()}</span>}
           {actor && <button type="button" disabled={busy} onClick={() => void mutate(() => accountProjectRepository.updateStack(stack.id, stack.version, { sequential_lock: !stack.sequential_lock }))} title={stack.sequential_lock ? 'Tắt thứ tự tuần tự' : 'Bật thứ tự tuần tự'} className="flex items-center gap-1 rounded-lg border border-slate-700 px-2 py-1 text-xs text-slate-300 disabled:opacity-50">{stack.sequential_lock ? <Lock className="h-3.5 w-3.5 text-amber-400" /> : <Unlock className="h-3.5 w-3.5" />}{stack.sequential_lock ? 'Tuần tự' : 'Tự do'}</button>}
@@ -519,10 +562,21 @@ export function ProjectWorkspace({ projectId, identity, onBack, onSettings }: Pr
       </section>)}
       {stacks.length === 0 && <div className="rounded-2xl border border-dashed border-slate-700 p-8 text-center text-sm text-slate-400">Chưa có giai đoạn nào. {actor ? 'Hãy thêm giai đoạn đầu tiên.' : 'Chủ dự án sẽ thêm công việc sau.'}</div>}
     </div>
+    {v2Actor && <TaskDetailDrawer item={selectedV2Item} stacks={v2Snapshot.stacks} members={v2Snapshot.members} currentMember={v2Actor} onClose={() => setSelectedTaskId(null)}
+      onSaveItem={(id, patch) => mutateForV2(() => saveV2Item(data, id, patch))}
+      onToggleSubtask={async (itemId, subtaskId) => {
+        const subtask = data.subtasks.find((entry) => entry.id === subtaskId && entry.task_id === itemId);
+        if (!subtask) throw new Error('Phần việc không còn tồn tại.');
+        await mutateForV2(() => accountProjectRepository.updateSubtask(subtask.id, subtask.version, { completed: !subtask.completed }));
+        const updated = await accountProjectRepository.loadProject(projectId);
+        return toV2WorkspaceSnapshot(updated).items.find((item) => item.id === itemId)?.subtasks ?? [];
+      }}
+      onDeleteItem={(id) => { const task = data.tasks.find((entry) => entry.id === id); return task ? mutateForV2(() => accountProjectRepository.deleteTask(task.id, task.version)) : Promise.reject(new Error('Đầu việc không còn tồn tại.')); }}
+      onMoveItem={(id, direction) => { const task = data.tasks.find((entry) => entry.id === id); return task ? mutateForV2(() => accountProjectRepository.moveTask(task.id, task.version, direction)) : Promise.reject(new Error('Đầu việc không còn tồn tại.')); }} />}
     </div>
     <aside className={`hidden border-l border-slate-800 xl:sticky xl:top-0 xl:block xl:h-dvh xl:overflow-y-auto ${rightSidebarOpen ? 'p-5' : 'p-2'}`}>
       <button type="button" onClick={() => setRightSidebarOpen((value) => !value)} aria-label={rightSidebarOpen ? 'Ẩn thanh nhật ký bên phải' : 'Mở thanh nhật ký bên phải'} title={rightSidebarOpen ? 'Ẩn thanh nhật ký bên phải' : 'Mở thanh nhật ký bên phải'} className={`mb-4 rounded-lg border border-slate-800 p-2 text-slate-400 hover:bg-slate-900 hover:text-foreground ${rightSidebarOpen ? '' : 'mx-auto block'}`}>{rightSidebarOpen ? <PanelRightClose className="h-4 w-4" /> : <PanelRightOpen className="h-4 w-4" />}</button>
-      {rightSidebarOpen && <AccountActivityPanel activities={data.activities} />}
+      {rightSidebarOpen && <ActivityPanel activities={v2Snapshot.activities} />}
     </aside>
     <nav className="fixed inset-x-0 bottom-0 z-40 grid grid-cols-3 border-t border-slate-800 bg-slate-950/95 px-2 pb-2 pt-2 backdrop-blur lg:hidden" aria-label="Điều hướng dự án">
       <button type="button" onClick={() => { setFilter('all'); setShowTeam(false); }} className={`flex flex-col items-center gap-1 text-[11px] ${filter === 'all' && !showTeam ? 'text-indigo-300' : 'text-slate-400'}`}><CheckSquare2 className="h-5 w-5" />Checklist</button>

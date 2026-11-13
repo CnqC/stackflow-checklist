@@ -279,8 +279,8 @@ export const accountProjectRepository = {
     });
     check(error);
   },
-  async updateTask(id: string, version: number, patch: Partial<ProjectTask>): Promise<void> {
-    await versionedUpdate('tasks', id, version, patch);
+  async updateTask(id: string, version: number, patch: Partial<ProjectTask>): Promise<number> {
+    return versionedUpdate('tasks', id, version, patch);
   },
   async deleteTask(id: string, version: number): Promise<void> {
     await versionedDelete('tasks', id, version);

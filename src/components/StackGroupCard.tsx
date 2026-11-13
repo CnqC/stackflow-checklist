@@ -41,6 +41,8 @@ interface StackGroupCardProps {
   onMoveStack: (stackId: string, direction: 'up' | 'down') => void;
   onDeleteStack: (stackId: string) => void;
   onNotifyBlockedSequence: (blockingTitle: string) => void;
+  allowManualMove?: boolean;
+  canDeleteStack?: boolean;
 }
 
 export const StackGroupCard: React.FC<StackGroupCardProps> = ({
@@ -58,6 +60,8 @@ export const StackGroupCard: React.FC<StackGroupCardProps> = ({
   onMoveStack,
   onDeleteStack,
   onNotifyBlockedSequence,
+  allowManualMove = true,
+  canDeleteStack = true,
 }) => {
   const [newTitle, setNewTitle] = useState('');
   const [newAssigneeId, setNewAssigneeId] = useState<string>('');
@@ -150,7 +154,7 @@ export const StackGroupCard: React.FC<StackGroupCardProps> = ({
               )}
             </button>
 
-            <div className="hidden sm:flex items-center bg-slate-950/60 rounded-lg border border-slate-800">
+            {allowManualMove && <div className="hidden sm:flex items-center bg-slate-950/60 rounded-lg border border-slate-800">
               <button
                 type="button"
                 disabled={stackIndex === 0}
@@ -169,9 +173,9 @@ export const StackGroupCard: React.FC<StackGroupCardProps> = ({
               >
                 <ChevronDown className="w-3.5 h-3.5" />
               </button>
-            </div>
+            </div>}
 
-            <button
+            {canDeleteStack && <button
               type="button"
               onClick={() => {
                 if (window.confirm(`Xóa "${stack.title}" và toàn bộ các mục bên trong?`)) {
@@ -182,7 +186,7 @@ export const StackGroupCard: React.FC<StackGroupCardProps> = ({
               className="p-1.5 rounded-lg text-slate-500 hover:text-rose-400 hover:bg-rose-500/10 transition cursor-pointer"
             >
               <Trash2 className="w-3.5 h-3.5" />
-            </button>
+            </button>}
           </div>
         </div>
 
@@ -241,7 +245,8 @@ export const StackGroupCard: React.FC<StackGroupCardProps> = ({
                 return (
                   <li
                     key={item.id}
-                    className={`group px-4 sm:px-5 py-3 flex items-start gap-3 transition ${
+                    id={`task-${item.id}`}
+                    className={`group scroll-mt-24 px-4 sm:px-5 py-3 flex items-start gap-3 transition ${
                       item.completed
                         ? 'bg-slate-950/30'
                         : isSeqLocked
