@@ -30,4 +30,4 @@ Web/PWA phát hành qua GitHub Pages theo `.github/workflows/deploy.yml`. Androi
 
 ## Trạng thái
 
-Schema và giao diện v3 đã được kiểm thử cục bộ. Supabase project v3 mới (`xwzwsysekkizxmmjjjvn`) đã nhận migration và còn trống. Chưa chuyển dữ liệu thật hoặc phát hành vì Google OAuth chưa được cấu hình và email admin chưa được cung cấp. Xem [trạng thái triển khai](specs/003-google-account-v3/tasks.md).
+Schema và giao diện v3 đã được kiểm thử cục bộ. Supabase project v3 (`xwzwsysekkizxmmjjjvn`) đã nhận migrations `001`–`009` và Google provider đã bật. Chưa chuyển production vì bản v3 còn phải đạt [đối chiếu đầy đủ tính năng bản PIN](specs/003-google-account-v3/parity.md), email admin chưa được cung cấp, backup vận hành và kiểm thử thiết bị thật chưa hoàn thành. Xem [trạng thái triển khai](specs/003-google-account-v3/tasks.md).

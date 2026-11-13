@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from 'react';
-import { ArrowLeft, Check, ChevronDown, ChevronRight, Plus, Settings2, Users } from 'lucide-react';
+import { Activity, ArrowLeft, Check, CheckSquare2, ChevronDown, ChevronRight, ChevronUp, ExternalLink, Filter, Link2, Lock, Plus, Search, Settings2, Trash2, Unlock, UserCheck, Users } from 'lucide-react';
 import {
   canManageTask,
   canToggleSubtask,
@@ -13,6 +13,8 @@ import {
 } from '../../core/domain/accountProject';
 import type { AccountIdentity } from '../../infrastructure/auth/accountAuthService';
 import { accountProjectRepository } from '../../infrastructure/projects/accountProjectRepository';
+import { AccountActivityPanel } from './AccountActivityPanel';
+import { AccountNoticeBell } from './AccountNoticeBell';
 
 interface Props {
   projectId: string;
@@ -20,6 +22,8 @@ interface Props {
   onBack: () => void;
   onSettings: () => void;
 }
+
+type TaskFilter = 'all' | 'mine' | 'incomplete' | 'doing' | 'blocked' | 'done';
 
 function errorMessage(cause: unknown): string {
   return cause instanceof Error ? cause.message : String(cause);
@@ -69,23 +73,41 @@ function CreateTaskForm({ stack, members, actor, onCreate, busy }: {
   </form>;
 }
 
-function TaskCard({ task, data, actor, busy, mutate }: {
+function TaskCard({ task, stack, data, actor, busy, mutate, selectedTaskId, onClearSelectedTask }: {
   task: ProjectTask;
+  stack: ProjectStack;
   data: ProjectData;
   actor: ProjectMember | null;
   busy: boolean;
   mutate: (action: () => Promise<unknown>) => Promise<boolean>;
+  selectedTaskId: string | null;
+  onClearSelectedTask: () => void;
 }) {
   const [expanded, setExpanded] = useState(false);
   const [newSubtask, setNewSubtask] = useState('');
   const [newAssignee, setNewAssignee] = useState('');
+  const [newLinkLabel, setNewLinkLabel] = useState('');
+  const [newLinkUrl, setNewLinkUrl] = useState('');
   const [draft, setDraft] = useState(() => draftFromTask(task));
+  const isExpanded = expanded || selectedTaskId === task.id;
+  const toggleExpanded = () => { if (selectedTaskId === task.id) onClearSelectedTask(); else setExpanded((value) => !value); };
   const currentDraft = draft.version === task.version || draft.dirty ? draft : draftFromTask(task);
   const assigneeIds = data.assignees.filter((entry) => entry.task_id === task.id).map((entry) => entry.member_id);
   const subtasks = data.subtasks.filter((entry) => entry.task_id === task.id)
     .sort((a, b) => a.position - b.position);
+  const links = data.links.filter((entry) => entry.task_id === task.id)
+    .sort((a, b) => a.position - b.position);
   const manager = canManageTask(task, actor);
   const canTick = canToggleTask(task, data.assignees, actor);
+  const taskOrder = data.tasks.filter((entry) => entry.stack_id === stack.id)
+    .sort((a, b) => a.position - b.position || a.created_at.localeCompare(b.created_at) || a.id.localeCompare(b.id));
+  const orderIndex = taskOrder.findIndex((entry) => entry.id === task.id);
+  const precedingTask = stack.sequential_lock && !task.completed
+    ? data.tasks.filter((candidate) => candidate.stack_id === stack.id &&
+      (candidate.position < task.position || (candidate.position === task.position &&
+        (candidate.created_at < task.created_at || (candidate.created_at === task.created_at && candidate.id < task.id)))) &&
+      !candidate.completed).sort((a, b) => a.position - b.position || a.created_at.localeCompare(b.created_at) || a.id.localeCompare(b.id))[0]
+    : undefined;
 
   async function saveDetails(event: FormEvent) {
     event.preventDefault();
@@ -106,23 +128,45 @@ function TaskCard({ task, data, actor, busy, mutate }: {
     if (saved) { setNewSubtask(''); setNewAssignee(''); }
   }
 
-  return <article className="rounded-xl border border-slate-700 bg-slate-900/80 p-3">
+  async function addLink(event: FormEvent) {
+    event.preventDefault();
+    let url: URL;
+    try { url = new URL(newLinkUrl.trim()); } catch { window.alert('Hãy nhập link http hoặc https hợp lệ.'); return; }
+    if (url.protocol !== 'https:' && url.protocol !== 'http:') {
+      window.alert('Chỉ hỗ trợ link http hoặc https.'); return;
+    }
+    const saved = await mutate(() => accountProjectRepository.addTaskLink(
+      task.project_id, task.id, newLinkLabel.trim() || url.hostname, url.href,
+    ));
+    if (saved) { setNewLinkLabel(''); setNewLinkUrl(''); }
+  }
+
+  return <article id={`task-${task.id}`} className="rounded-xl border border-slate-700 bg-slate-900/80 p-3">
     <div className="flex items-start gap-3">
       <button type="button" aria-label={task.completed ? 'Mở lại việc' : 'Đánh dấu hoàn thành'}
-        title={canTick ? 'Đánh dấu việc của bạn' : 'Chỉ người được giao việc mới có thể đánh dấu'}
+        title={!canTick ? 'Chỉ người được giao việc mới có thể đánh dấu' : precedingTask ? `Hoàn thành “${precedingTask.title}” trước` : 'Đánh dấu việc của bạn'}
         disabled={!canTick || busy}
-        onClick={() => void mutate(() => accountProjectRepository.updateTask(task.id, task.version, { completed: !task.completed }))}
+        onClick={() => { if (precedingTask) { window.alert(`Stack tuần tự: Hãy hoàn thành “${precedingTask.title}” trước.`); return; } void mutate(() => accountProjectRepository.updateTask(task.id, task.version, { completed: !task.completed })); }}
         className={`mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border ${task.completed ? 'border-emerald-400 bg-emerald-500 text-white' : 'border-slate-500 text-slate-500'} disabled:opacity-50`}>
         {task.completed && <Check className="h-5 w-5" />}
       </button>
-      <button type="button" onClick={() => setExpanded((value) => !value)} className="min-w-0 flex-1 text-left">
+      <button type="button" onClick={toggleExpanded} className="min-w-0 flex-1 text-left">
         <span className={`block text-sm font-semibold ${task.completed ? 'text-slate-400 line-through' : 'text-foreground'}`}>{task.title}</span>
-        <span className="mt-1 block text-xs text-slate-400">{assigneeIds.length ? assigneeIds.map((id) => memberName(data.members, id)).join(', ') : 'Chưa giao'} · {subtasks.length} phần việc nhỏ</span>
+        {task.notes && !task.completed && <span className="mt-1 block truncate text-xs text-slate-400">{task.notes}</span>}
+        <span className="mt-2 flex flex-wrap items-center gap-2 text-[11px] text-slate-400">
+          {task.status !== 'todo' && <span className={`rounded-md border px-1.5 py-0.5 ${task.completed ? 'border-emerald-500/40 text-emerald-300' : task.status === 'blocked' ? 'border-rose-500/40 text-rose-300' : 'border-sky-500/40 text-sky-300'}`}>{task.completed ? 'Hoàn thành' : task.status === 'blocked' ? 'Đang kẹt' : 'Đang làm'}</span>}
+          {task.priority === 'high' && <span className="rounded-md border border-amber-500/40 px-1.5 py-0.5 text-amber-300">Ưu tiên cao</span>}
+          {subtasks.length > 0 && <span>☷ {subtasks.filter((entry) => entry.completed).length}/{subtasks.length}</span>}
+          {links.length > 0 && <span>↗ {links.length} link</span>}
+          {task.due_date && <span>◷ {task.due_date}</span>}
+          <span>{assigneeIds.length ? assigneeIds.map((id) => memberName(data.members, id)).join(', ') : 'Chưa giao'}</span>
+        </span>
       </button>
-      <button type="button" onClick={() => setExpanded((value) => !value)} aria-label="Xem chi tiết việc" className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-800">{expanded ? <ChevronDown className="h-5 w-5" /> : <ChevronRight className="h-5 w-5" />}</button>
+      <button type="button" onClick={toggleExpanded} aria-label="Xem chi tiết việc" className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-800">{isExpanded ? <ChevronDown className="h-5 w-5" /> : <ChevronRight className="h-5 w-5" />}</button>
+      {actor?.access_role === 'owner' && <div className="flex flex-col"><button type="button" disabled={busy || orderIndex === 0} aria-label={`Đưa ${task.title} lên trên`} onClick={() => void mutate(() => accountProjectRepository.moveTask(task.id, task.version, 'up'))} className="text-slate-400 disabled:opacity-30"><ChevronUp className="h-4 w-4" /></button><button type="button" disabled={busy || orderIndex === taskOrder.length - 1} aria-label={`Đưa ${task.title} xuống dưới`} onClick={() => void mutate(() => accountProjectRepository.moveTask(task.id, task.version, 'down'))} className="text-slate-400 disabled:opacity-30"><ChevronDown className="h-4 w-4" /></button></div>}
     </div>
 
-    {expanded && <div className="mt-4 space-y-4 border-t border-slate-800 pt-4">
+    {isExpanded && <div className="mt-4 space-y-4 border-t border-slate-800 pt-4">
       {manager ? <form onSubmit={(event) => void saveDetails(event)} className="space-y-2">
         {currentDraft.version !== task.version && <div className="rounded-lg border border-amber-500/40 bg-amber-500/10 p-2 text-xs text-amber-300">Việc này vừa được cập nhật trên thiết bị khác. Nội dung bạn đang nhập vẫn còn; hãy đối chiếu trước khi dùng bản mới. <button type="button" onClick={() => setDraft(draftFromTask(task))} className="ml-1 font-semibold underline">Dùng bản mới</button></div>}
         <label className="block text-xs text-slate-400">Tên việc<input value={currentDraft.title} onChange={(event) => setDraft({ ...currentDraft, title: event.target.value, dirty: true })} required maxLength={240} className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-950 p-2.5 text-sm text-foreground" /></label>
@@ -172,6 +216,18 @@ function TaskCard({ task, data, actor, busy, mutate }: {
           <button type="submit" disabled={busy} className="min-h-10 rounded-lg bg-slate-700 px-3 text-xs font-semibold text-white disabled:opacity-50">Thêm</button>
         </form>}
       </div>
+      <div>
+        <p className="flex items-center gap-1.5 text-xs font-semibold text-slate-300"><Link2 className="h-4 w-4 text-sky-400" />Link tài liệu đính kèm</p>
+        <div className="mt-2 space-y-2">{links.map((link) => <div key={link.id} className="flex items-center gap-2 rounded-lg bg-slate-950 p-2 text-xs">
+          <a href={link.url} target="_blank" rel="noopener noreferrer" className="flex min-w-0 flex-1 items-center gap-2 text-sky-300 hover:underline"><ExternalLink className="h-3.5 w-3.5 shrink-0" /><span className="truncate">{link.label}</span></a>
+          {manager && <button type="button" disabled={busy} aria-label={`Gỡ link ${link.label}`} onClick={() => void mutate(() => accountProjectRepository.deleteTaskLink(link.id, link.version))} className="rounded p-1 text-slate-400 hover:text-red-300 disabled:opacity-50"><Trash2 className="h-4 w-4" /></button>}
+        </div>)}</div>
+        {manager && <form onSubmit={(event) => void addLink(event)} className="mt-3 grid gap-2 sm:grid-cols-[1fr_2fr_auto]">
+          <input value={newLinkLabel} onChange={(event) => setNewLinkLabel(event.target.value)} maxLength={160} placeholder="Tên link" aria-label="Tên link" className="min-h-10 rounded-lg border border-slate-700 bg-slate-950 px-3 text-xs text-foreground" />
+          <input value={newLinkUrl} onChange={(event) => setNewLinkUrl(event.target.value)} required type="url" placeholder="https://..." aria-label="Địa chỉ link" className="min-h-10 rounded-lg border border-slate-700 bg-slate-950 px-3 text-xs text-foreground" />
+          <button type="submit" disabled={busy} className="min-h-10 rounded-lg bg-slate-700 px-3 text-xs font-semibold text-white disabled:opacity-50">Đính kèm</button>
+        </form>}
+      </div>
       {manager && <button type="button" disabled={busy} onClick={() => {
         if (window.confirm(`Xóa việc “${task.title}” và mọi phần việc nhỏ?`)) {
           void mutate(() => accountProjectRepository.deleteTask(task.id, task.version));
@@ -186,10 +242,15 @@ export function ProjectWorkspace({ projectId, identity, onBack, onSettings }: Pr
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [showTeam, setShowTeam] = useState(false);
+  const [showActivity, setShowActivity] = useState(false);
   const [inviteEmail, setInviteEmail] = useState('');
   const [newStack, setNewStack] = useState('');
   const [projectName, setProjectName] = useState('');
   const [projectDescription, setProjectDescription] = useState('');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [filter, setFilter] = useState<TaskFilter>('all');
+  const [memberFilterId, setMemberFilterId] = useState<string | null>(null);
+  const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
 
   const refresh = useCallback(async () => {
     const next = await accountProjectRepository.loadProject(projectId);
@@ -226,6 +287,12 @@ export function ProjectWorkspace({ projectId, identity, onBack, onSettings }: Pr
   const canManageProject = data?.project.accessRole === 'owner'
     || data?.project.accessRole === 'global_admin';
 
+  useEffect(() => {
+    if (!selectedTaskId || !data) return;
+    const timer = setTimeout(() => document.getElementById(`task-${selectedTaskId}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 100);
+    return () => clearTimeout(timer);
+  }, [selectedTaskId, data]);
+
   async function mutate(action: () => Promise<unknown>): Promise<boolean> {
     setBusy(true);
     setError(null);
@@ -254,13 +321,55 @@ export function ProjectWorkspace({ projectId, identity, onBack, onSettings }: Pr
     if (success) setInviteEmail('');
   }
 
+  async function openTaskFromNotice(taskId: string) {
+    const task = data?.tasks.find((entry) => entry.id === taskId);
+    if (!task) { setError('Việc này đã bị xóa hoặc bạn không còn quyền xem.'); return; }
+    setFilter('all');
+    setSearchQuery('');
+    const stack = data?.stacks.find((entry) => entry.id === task.stack_id);
+    if (stack?.collapsed) await mutate(() => accountProjectRepository.updateStack(stack.id, stack.version, { collapsed: false }));
+    setSelectedTaskId(taskId);
+  }
+
   if (!data) return <main className="mx-auto max-w-5xl p-6 text-slate-300">
     <button type="button" onClick={onBack} className="mb-5 inline-flex items-center gap-2 text-sm"><ArrowLeft className="h-4 w-4" />Dự án</button>
     {error ? <p role="alert" className="rounded-xl border border-red-500/40 bg-red-500/10 p-4 text-red-200">{error}</p> : <p>Đang tải dự án...</p>}
   </main>;
 
-  const stacks = [...data.stacks].sort((a, b) => a.position - b.position);
-  return <main className="mx-auto min-h-dvh max-w-6xl px-4 py-5 sm:px-7">
+  const stacks = [...data.stacks].sort((a, b) => a.position - b.position || a.created_at.localeCompare(b.created_at) || a.id.localeCompare(b.id));
+  const mineIds = new Set(data.assignees.filter((entry) => entry.member_id === actor?.id).map((entry) => entry.task_id));
+  const mySubtaskIds = new Set(data.subtasks.filter((entry) => entry.assignee_member_id === actor?.id).map((entry) => entry.task_id));
+  const mineCount = data.tasks.filter((task) => !task.completed && (mineIds.has(task.id) || mySubtaskIds.has(task.id))).length;
+  const completedCount = data.tasks.filter((task) => task.completed).length;
+  const progress = data.tasks.length ? Math.round(completedCount / data.tasks.length * 100) : 0;
+  const query = searchQuery.trim().toLocaleLowerCase('vi');
+  const visibleTasks = (stackId: string) => data.tasks.filter((task) => {
+    if (task.stack_id !== stackId) return false;
+    if (memberFilterId && !data.assignees.some((entry) => entry.task_id === task.id && entry.member_id === memberFilterId)
+      && !data.subtasks.some((entry) => entry.task_id === task.id && entry.assignee_member_id === memberFilterId)) return false;
+    if (filter === 'mine' && !(mineIds.has(task.id) || mySubtaskIds.has(task.id))) return false;
+    if (filter === 'incomplete' && task.completed) return false;
+    if (filter === 'doing' && task.status !== 'doing') return false;
+    if (filter === 'blocked' && task.status !== 'blocked') return false;
+    if (filter === 'done' && !task.completed) return false;
+    if (query && !`${task.title} ${task.notes} ${data.subtasks.filter((subtask) => subtask.task_id === task.id).map((subtask) => subtask.title).join(' ')}`.toLocaleLowerCase('vi').includes(query)) return false;
+    return true;
+  }).sort((a, b) => a.position - b.position || a.created_at.localeCompare(b.created_at) || a.id.localeCompare(b.id));
+  return <main className="min-h-dvh bg-slate-950 text-slate-100 lg:grid lg:grid-cols-[19rem_minmax(0,1fr)] xl:grid-cols-[19rem_minmax(0,1fr)_20rem]">
+    <aside className="hidden border-r border-slate-800 bg-slate-950/80 p-5 lg:flex lg:h-dvh lg:flex-col lg:overflow-y-auto lg:sticky lg:top-0">
+      <button type="button" onClick={onBack} className="text-left"><span className="text-[11px] font-semibold uppercase tracking-widest text-indigo-300">{data.project.code}</span><span className="mt-1 block font-bold text-foreground">{data.project.name}</span></button>
+      <section className="mt-6 rounded-2xl border border-slate-800 bg-slate-900 p-4" aria-label="Tiến độ toàn dự án">
+        <p className="text-xs text-slate-400">Tiến độ toàn dự án</p><div className="mt-1 flex items-end justify-between"><strong className="text-2xl text-white">{progress}%</strong><span className="text-xs text-slate-400">{completedCount}/{data.tasks.length} việc</span></div>
+        <div className="mt-3 h-2 overflow-hidden rounded-full bg-slate-950"><div className="h-full rounded-full bg-gradient-to-r from-indigo-500 to-emerald-400" style={{ width: `${progress}%` }} /></div>
+        <div className="mt-4 grid grid-cols-3 gap-2 text-center text-[11px]"><div className="rounded-lg bg-slate-950 p-2"><span className="block font-bold text-emerald-400">{completedCount}</span>Đã xong</div><div className="rounded-lg bg-slate-950 p-2"><span className="block font-bold text-sky-400">{data.tasks.filter((task) => task.status === 'doing').length}</span>Đang làm</div><div className="rounded-lg bg-slate-950 p-2"><span className="block font-bold text-rose-400">{data.tasks.filter((task) => task.status === 'blocked').length}</span>Đang kẹt</div></div>
+      </section>
+      <p className="mt-7 text-xs font-semibold uppercase tracking-wider text-slate-400">Các tầng Stack ({stacks.length})</p>
+      <nav className="mt-2 space-y-1">{stacks.map((stack) => <button key={stack.id} type="button" onClick={() => document.getElementById(`stack-${stack.id}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' })} className="flex w-full items-center gap-2 rounded-lg border border-slate-800 bg-slate-900/70 px-3 py-2 text-left text-xs text-slate-200 hover:border-indigo-500"><span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ backgroundColor: stack.color }} /><span className="min-w-0 flex-1 truncate">{stack.title}</span><span className="text-slate-500">{data.tasks.filter((task) => task.stack_id === stack.id).length}</span></button>)}</nav>
+      <p className="mt-7 text-xs font-semibold uppercase tracking-wider text-slate-400">Thành viên ({data.members.filter((member) => member.active).length}/20)</p>
+      <div className="mt-2 space-y-2">{data.members.filter((member) => member.active).map((member) => <button type="button" key={member.id} aria-pressed={memberFilterId === member.id} onClick={() => setMemberFilterId((current) => current === member.id ? null : member.id)} className={`flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left text-xs ${memberFilterId === member.id ? 'bg-indigo-500/20 text-indigo-100' : 'text-slate-300 hover:bg-slate-900'}`}><span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-indigo-600 text-[10px] font-bold text-white">{member.display_name.slice(0, 2).toUpperCase()}</span><span className="min-w-0 flex-1 truncate">{member.display_name}{member.user_id === identity.id ? ' (Bạn)' : ''}</span><span className="text-slate-500">{data.assignees.filter((entry) => entry.member_id === member.id && data.tasks.some((task) => task.id === entry.task_id && !task.completed)).length}</span></button>)}</div>
+      <div className="mt-auto border-t border-slate-800 pt-4"><button type="button" onClick={onBack} className="flex items-center gap-2 text-xs text-slate-400 hover:text-white"><ArrowLeft className="h-4 w-4" />Tất cả dự án</button></div>
+    </aside>
+    <div className="min-w-0 px-4 py-5 pb-24 sm:px-7 lg:mx-auto lg:w-full lg:max-w-5xl lg:pb-8">
     <header className="flex flex-wrap items-center justify-between gap-3">
       <div>
         <button type="button" onClick={onBack} className="inline-flex items-center gap-1 text-xs text-slate-400 hover:text-foreground"><ArrowLeft className="h-4 w-4" />Tất cả dự án</button>
@@ -268,19 +377,27 @@ export function ProjectWorkspace({ projectId, identity, onBack, onSettings }: Pr
         <h1 className="text-2xl font-bold text-foreground">{data.project.name}</h1>
       </div>
       <div className="flex gap-2">
+        {actor && <AccountNoticeBell projectId={projectId} memberId={identity.id} notices={data.notices} onRead={(id) => void mutate(() => accountProjectRepository.markNoticeRead(id))} onOpenTask={(id) => void openTaskFromNotice(id)} />}
+        <button type="button" onClick={() => setShowActivity((value) => !value)} aria-expanded={showActivity} className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-slate-700 px-3 text-sm text-slate-200"><Activity className="h-4 w-4" /><span className="hidden sm:inline">Nhật ký</span></button>
         <button type="button" onClick={() => { setProjectName(data.project.name); setProjectDescription(data.project.description); setShowTeam((value) => !value); }} className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-slate-700 px-3 text-sm text-slate-200"><Users className="h-4 w-4" />Thành viên</button>
         <button type="button" onClick={onSettings} aria-label="Cài đặt" className="rounded-xl border border-slate-700 p-3 text-slate-200"><Settings2 className="h-5 w-5" /></button>
       </div>
     </header>
     {data.project.accessRole === 'global_admin' && <p className="mt-4 rounded-xl border border-indigo-500/40 bg-indigo-500/10 p-3 text-sm text-indigo-100">Chế độ theo dõi của admin. Bạn không ở danh sách thành viên và không thể tạo hoặc đánh dấu việc.</p>}
     {error && <p role="alert" className="mt-4 rounded-xl border border-red-500/40 bg-red-500/10 p-3 text-sm text-red-200">{error}</p>}
+    {showActivity && <div className="mt-5"><AccountActivityPanel activities={data.activities} /></div>}
+
+    <section className="mt-5 rounded-2xl border border-slate-700 bg-slate-900/80 p-4 lg:hidden" aria-label="Tiến độ dự án">
+      <div className="flex items-center justify-between gap-3 text-sm"><span className="font-semibold text-foreground">Tiến độ toàn dự án</span><span className="text-slate-300">{completedCount}/{data.tasks.length} việc · {progress}%</span></div>
+      <div className="mt-3 h-2 overflow-hidden rounded-full bg-slate-800"><div className="h-full rounded-full bg-emerald-500" style={{ width: `${progress}%` }} /></div>
+    </section>
 
     {showTeam && <section className="mt-5 rounded-2xl border border-slate-700 bg-slate-900 p-4">
       <h2 className="font-semibold text-foreground">Thành viên dự án</h2>
       <p className="mt-1 text-xs text-slate-400">{data.members.filter((member) => member.active).length} / 20 người · Admin toàn cục không nằm trong danh sách này.</p>
       <ul className="mt-3 grid gap-2 sm:grid-cols-2">{data.members.map((member) =>
         <li key={member.id} className="rounded-lg bg-slate-950 p-3 text-sm text-foreground">
-          <div>{member.display_name}<span className="ml-2 text-xs text-slate-400">{!member.active ? 'Tạm ngưng' : member.access_role === 'owner' ? 'Chủ dự án' : member.job_title || 'Thành viên'}</span></div>
+          <button type="button" onClick={() => { setMemberFilterId(member.id); setShowTeam(false); }} className="text-left">{member.display_name}<span className="ml-2 text-xs text-slate-400">{!member.active ? 'Tạm ngưng' : member.access_role === 'owner' ? 'Chủ dự án' : member.job_title || 'Thành viên'}</span></button>
           {canManageProject && member.access_role !== 'owner' && <div className="mt-2 flex gap-3 text-xs">
             <button type="button" disabled={busy} onClick={() => void mutate(() => accountProjectRepository.setMemberActive(projectId, member.id, !member.active))} className="text-indigo-300 disabled:opacity-50">{member.active ? 'Tạm ngưng' : 'Kích hoạt lại'}</button>
             {member.active && <button type="button" disabled={busy} onClick={() => { if (window.confirm(`Chuyển quyền chủ dự án cho ${member.display_name}?`)) void mutate(() => accountProjectRepository.transferOwner(projectId, member.id)); }} className="text-indigo-300 disabled:opacity-50">Chuyển quyền chủ</button>}
@@ -298,13 +415,32 @@ export function ProjectWorkspace({ projectId, identity, onBack, onSettings }: Pr
 
     {actor && <form onSubmit={(event) => void addStack(event)} className="mt-6 flex gap-2"><input required value={newStack} onChange={(event) => setNewStack(event.target.value)} placeholder="Thêm giai đoạn công việc" className="min-h-11 min-w-0 flex-1 rounded-xl border border-slate-700 bg-slate-900 px-4 text-sm text-foreground" /><button type="submit" disabled={busy} className="inline-flex min-h-11 items-center gap-1 rounded-xl bg-indigo-600 px-4 text-sm font-semibold text-white disabled:opacity-50"><Plus className="h-4 w-4" />Thêm</button></form>}
 
-    <div className="mt-6 grid gap-5 lg:grid-cols-2">
-      {stacks.map((stack) => <section key={stack.id} className="rounded-2xl border border-slate-700 bg-slate-800/50 p-4">
-        <div className="flex items-center justify-between gap-2"><div><h2 className="font-bold text-foreground">{stack.title}</h2><p className="mt-1 text-xs text-slate-400">{data.tasks.filter((task) => task.stack_id === stack.id).length} việc</p></div>{actor?.access_role === 'owner' && <button type="button" disabled={busy} onClick={() => { if (window.confirm(`Xóa giai đoạn “${stack.title}” và tất cả việc bên trong?`)) void mutate(() => accountProjectRepository.deleteStack(stack.id, stack.version)); }} className="text-xs text-red-300 disabled:opacity-50">Xóa</button>}</div>
-        <div className="mt-4 space-y-3">{data.tasks.filter((task) => task.stack_id === stack.id).sort((a, b) => a.position - b.position).map((task) => <TaskCard key={task.id} task={task} data={data} actor={actor} busy={busy} mutate={mutate} />)}</div>
-        {actor && <CreateTaskForm stack={stack} members={data.members} actor={actor} busy={busy} onCreate={(title, assigneeIds) => mutate(() => accountProjectRepository.addTask({ projectId, stackId: stack.id, title, assigneeIds }))} />}
+    <section className="mt-6 space-y-3" aria-label="Tìm và lọc công việc">
+      {memberFilterId && <button type="button" onClick={() => setMemberFilterId(null)} className="rounded-lg border border-indigo-500/50 bg-indigo-500/10 px-3 py-1.5 text-xs text-indigo-200">Đang lọc: {memberName(data.members, memberFilterId)} · Bỏ lọc</button>}
+      <label className="relative block max-w-md"><Search className="absolute left-3 top-3.5 h-4 w-4 text-slate-400" /><span className="sr-only">Tìm kiếm đầu việc hoặc ghi chú</span><input value={searchQuery} onChange={(event) => setSearchQuery(event.target.value)} placeholder="Tìm kiếm đầu việc hoặc ghi chú..." className="min-h-11 w-full rounded-xl border border-slate-700 bg-slate-900 pl-9 pr-3 text-sm text-foreground" /></label>
+      <div className="flex items-center gap-2 overflow-x-auto pb-1"><Filter className="h-4 w-4 shrink-0 text-slate-400" />{([
+        ['all', 'Tất cả'], ['mine', `Việc của tôi (${mineCount})`], ['incomplete', 'Chưa xong'],
+        ['doing', 'Đang làm'], ['blocked', 'Đang kẹt'], ['done', 'Hoàn thành'],
+      ] as [TaskFilter, string][]).map(([value, label]) => <button type="button" key={value} aria-pressed={filter === value} onClick={() => setFilter(value)} className={`shrink-0 rounded-xl border px-3 py-1.5 text-xs font-medium ${filter === value ? 'border-indigo-500 bg-indigo-600 text-white' : 'border-slate-700 bg-slate-900 text-slate-300'}`}>{label}</button>)}</div>
+    </section>
+
+    <div className="mt-6 space-y-4">
+      {stacks.map((stack, stackIndex) => <section key={stack.id} id={`stack-${stack.id}`} className="scroll-mt-4 overflow-hidden rounded-2xl border border-slate-700 bg-slate-900/80 p-4 shadow-lg shadow-black/20" style={{ borderTopColor: stack.color, borderTopWidth: 3 }}>
+        <div className="flex items-center justify-between gap-2"><button type="button" onClick={() => void mutate(() => accountProjectRepository.updateStack(stack.id, stack.version, { collapsed: !stack.collapsed }))} className="flex min-w-0 items-center gap-2 text-left text-foreground">{stack.collapsed ? <ChevronRight className="h-4 w-4 shrink-0" /> : <ChevronDown className="h-4 w-4 shrink-0" />}<span><span className="block font-bold">{stack.title}</span><span className="mt-1 block text-xs text-slate-400">{data.tasks.filter((task) => task.stack_id === stack.id).length} việc</span></span></button><div className="flex items-center gap-2">{actor && <button type="button" disabled={busy} onClick={() => void mutate(() => accountProjectRepository.updateStack(stack.id, stack.version, { sequential_lock: !stack.sequential_lock }))} title={stack.sequential_lock ? 'Tắt thứ tự tuần tự' : 'Bật thứ tự tuần tự'} className="flex items-center gap-1 rounded-lg border border-slate-700 px-2 py-1 text-xs text-slate-300 disabled:opacity-50">{stack.sequential_lock ? <Lock className="h-3.5 w-3.5 text-amber-400" /> : <Unlock className="h-3.5 w-3.5" />}{stack.sequential_lock ? 'Tuần tự' : 'Tự do'}</button>}{actor && <div className="flex rounded-lg border border-slate-700"><button type="button" disabled={busy || stackIndex === 0} aria-label={`Đưa ${stack.title} lên trên`} onClick={() => void mutate(() => accountProjectRepository.moveStack(stack.id, stack.version, 'up'))} className="p-1 text-slate-300 disabled:opacity-30"><ChevronUp className="h-4 w-4" /></button><button type="button" disabled={busy || stackIndex === stacks.length - 1} aria-label={`Đưa ${stack.title} xuống dưới`} onClick={() => void mutate(() => accountProjectRepository.moveStack(stack.id, stack.version, 'down'))} className="p-1 text-slate-300 disabled:opacity-30"><ChevronDown className="h-4 w-4" /></button></div>}{actor?.access_role === 'owner' && <button type="button" disabled={busy} onClick={() => { if (window.confirm(`Xóa giai đoạn “${stack.title}” và tất cả việc bên trong?`)) void mutate(() => accountProjectRepository.deleteStack(stack.id, stack.version)); }} className="text-xs text-red-300 disabled:opacity-50">Xóa</button>}</div></div>
+        <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-slate-900"><div className="h-full rounded-full bg-indigo-500" style={{ width: `${data.tasks.some((task) => task.stack_id === stack.id) ? Math.round(data.tasks.filter((task) => task.stack_id === stack.id && task.completed).length / data.tasks.filter((task) => task.stack_id === stack.id).length * 100) : 0}%` }} /></div>
+        {!stack.collapsed && <><div className="mt-4 space-y-3">{visibleTasks(stack.id).map((task) => <TaskCard key={task.id} task={task} stack={stack} data={data} actor={actor} busy={busy} mutate={mutate} selectedTaskId={selectedTaskId} onClearSelectedTask={() => setSelectedTaskId(null)} />)}</div>
+        {visibleTasks(stack.id).length === 0 && data.tasks.some((task) => task.stack_id === stack.id) && <p className="mt-3 text-xs text-slate-400">Không có việc phù hợp bộ lọc.</p>}
+        {actor && <CreateTaskForm stack={stack} members={data.members} actor={actor} busy={busy} onCreate={(title, assigneeIds) => mutate(() => accountProjectRepository.addTask({ projectId, stackId: stack.id, title, assigneeIds }))} />}</>}
       </section>)}
       {stacks.length === 0 && <div className="rounded-2xl border border-dashed border-slate-700 p-8 text-center text-sm text-slate-400">Chưa có giai đoạn nào. {actor ? 'Hãy thêm giai đoạn đầu tiên.' : 'Chủ dự án sẽ thêm công việc sau.'}</div>}
     </div>
+    </div>
+    <aside className="hidden border-l border-slate-800 p-5 xl:block xl:h-dvh xl:sticky xl:top-0 xl:overflow-y-auto"><AccountActivityPanel activities={data.activities} /></aside>
+    <nav className="fixed inset-x-0 bottom-0 z-40 grid grid-cols-4 border-t border-slate-800 bg-slate-950/95 px-2 pb-2 pt-2 backdrop-blur lg:hidden" aria-label="Điều hướng dự án">
+      <button type="button" onClick={() => { setFilter('all'); setShowActivity(false); setShowTeam(false); }} className={`flex flex-col items-center gap-1 text-[11px] ${filter === 'all' && !showActivity && !showTeam ? 'text-indigo-300' : 'text-slate-400'}`}><CheckSquare2 className="h-5 w-5" />Checklist</button>
+      <button type="button" onClick={() => { setFilter('mine'); setShowActivity(false); setShowTeam(false); }} className={`flex flex-col items-center gap-1 text-[11px] ${filter === 'mine' && !showActivity ? 'text-indigo-300' : 'text-slate-400'}`}><UserCheck className="h-5 w-5" />Của tôi ({mineCount})</button>
+      <button type="button" onClick={() => { setShowActivity(true); setShowTeam(false); }} className={`flex flex-col items-center gap-1 text-[11px] ${showActivity ? 'text-indigo-300' : 'text-slate-400'}`}><Activity className="h-5 w-5" />Nhật ký</button>
+      <button type="button" onClick={() => { setShowTeam(true); setShowActivity(false); }} className={`flex flex-col items-center gap-1 text-[11px] ${showTeam ? 'text-indigo-300' : 'text-slate-400'}`}><Users className="h-5 w-5" />Nhóm</button>
+    </nav>
   </main>;
 }

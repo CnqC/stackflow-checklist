@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { X } from 'lucide-react';
 import { AppearanceSettings } from '../AppearanceSettings';
+import { NotificationSettings } from '../NotificationSettings';
 import { UpdateBanner, UpdateSettings } from '../UpdateSettings';
 import { accountAuthService, type AccountIdentity } from '../../infrastructure/auth/accountAuthService';
 import { AccountLogin } from './AccountLogin';
@@ -75,6 +76,7 @@ export function AccountApp() {
       <section role="dialog" aria-modal="true" aria-label="Cài đặt" className="max-h-[90dvh] w-full max-w-2xl overflow-y-auto rounded-2xl border border-slate-700 bg-slate-950 p-5 shadow-2xl">
         <div className="mb-5 flex items-center justify-between"><div><h2 className="text-lg font-bold text-foreground">Cài đặt</h2><p className="text-xs text-slate-400">Giao diện và phiên bản ứng dụng</p></div><button type="button" aria-label="Đóng cài đặt" onClick={() => setSettingsOpen(false)} className="rounded-lg p-2 text-slate-400 hover:bg-slate-800"><X className="h-5 w-5" /></button></div>
         <AppearanceSettings />
+        {projectId && identity && <div className="mt-7 border-t border-slate-800 pt-5"><h3 className="mb-4 font-semibold text-foreground">Thông báo</h3><NotificationSettings workspaceId={projectId} memberId={identity.id} /></div>}
         <div className="mt-7 border-t border-slate-800 pt-5"><UpdateSettings /></div>
       </section>
     </div>}

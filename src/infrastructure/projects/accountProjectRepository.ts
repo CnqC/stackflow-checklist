@@ -58,7 +58,7 @@ function check(error: { message: string; code?: string } | null): void {
 }
 
 async function versionedUpdate(
-  table: 'stacks' | 'tasks' | 'subtasks',
+  table: 'stacks' | 'tasks' | 'subtasks' | 'task_links',
   id: string,
   version: number,
   patch: Record<string, unknown>,
@@ -71,7 +71,7 @@ async function versionedUpdate(
 }
 
 async function versionedDelete(
-  table: 'stacks' | 'tasks' | 'subtasks',
+  table: 'stacks' | 'tasks' | 'subtasks' | 'task_links',
   id: string,
   version: number,
 ): Promise<void> {
@@ -189,22 +189,32 @@ export const accountProjectRepository = {
       return { ...(data as ProjectRow), accessRole: role } as ProjectData[T];
     }
     const tableName = table === 'members' ? 'project_members'
-      : table === 'assignees' ? 'task_assignees' : table;
-    const { data, error } = await supabase.from(tableName).select('*').eq('project_id', projectId);
+      : table === 'assignees' ? 'task_assignees'
+        : table === 'links' ? 'task_links'
+          : table === 'activities' ? 'activity_logs'
+            : table === 'notices' ? 'assignment_notices' : table;
+    let query = supabase.from(tableName).select('*').eq('project_id', projectId);
+    if (table === 'activities' || table === 'notices') {
+      query = query.order('created_at', { ascending: false }).limit(100);
+    }
+    const { data, error } = await query;
     check(error);
     return (data ?? []) as ProjectData[T];
   },
 
   async loadProject(projectId: string): Promise<ProjectData> {
-    const [project, members, stacks, tasks, assignees, subtasks] = await Promise.all([
+    const [project, members, stacks, tasks, assignees, subtasks, links, activities, notices] = await Promise.all([
       this.loadTable(projectId, 'project'),
       this.loadTable(projectId, 'members'),
       this.loadTable(projectId, 'stacks'),
       this.loadTable(projectId, 'tasks'),
       this.loadTable(projectId, 'assignees'),
       this.loadTable(projectId, 'subtasks'),
+      this.loadTable(projectId, 'links'),
+      this.loadTable(projectId, 'activities'),
+      this.loadTable(projectId, 'notices'),
     ]);
-    return { project, members, stacks, tasks, assignees, subtasks };
+    return { project, members, stacks, tasks, assignees, subtasks, links, activities, notices };
   },
 
   subscribe(projectId: string, onChange: (table: ProjectTable) => void): () => void {
@@ -213,6 +223,9 @@ export const accountProjectRepository = {
       ['project', 'projects'], ['members', 'project_members'],
       ['stacks', 'stacks'], ['tasks', 'tasks'],
       ['assignees', 'task_assignees'], ['subtasks', 'subtasks'],
+      ['links', 'task_links'],
+      ['activities', 'activity_logs'],
+      ['notices', 'assignment_notices'],
     ];
     for (const [table, databaseTable] of tables) {
       channel.on('postgres_changes', {
@@ -225,7 +238,13 @@ export const accountProjectRepository = {
   },
 
   async addStack(projectId: string, title: string): Promise<void> {
-    const { error } = await client().from('stacks').insert({ project_id: projectId, title });
+    const { error } = await client().rpc('create_stack', { p_project_id: projectId, p_title: title });
+    check(error);
+  },
+  async moveStack(id: string, version: number, direction: 'up' | 'down'): Promise<void> {
+    const { error } = await client().rpc('move_stack', {
+      p_stack_id: id, p_direction: direction, p_expected_version: version,
+    });
     check(error);
   },
   async updateStack(id: string, version: number, patch: Partial<ProjectStack>): Promise<void> {
@@ -256,6 +275,12 @@ export const accountProjectRepository = {
   async deleteTask(id: string, version: number): Promise<void> {
     await versionedDelete('tasks', id, version);
   },
+  async moveTask(id: string, version: number, direction: 'up' | 'down'): Promise<void> {
+    const { error } = await client().rpc('move_task', {
+      p_task_id: id, p_direction: direction, p_expected_version: version,
+    });
+    check(error);
+  },
   async setTaskAssignees(id: string, version: number, assigneeIds: string[]): Promise<void> {
     const { error } = await client().rpc('set_task_assignees', {
       p_task_id: id, p_expected_version: version,
@@ -280,5 +305,19 @@ export const accountProjectRepository = {
   },
   async deleteSubtask(id: string, version: number): Promise<void> {
     await versionedDelete('subtasks', id, version);
+  },
+
+  async addTaskLink(projectId: string, taskId: string, label: string, url: string): Promise<void> {
+    const { error } = await client().from('task_links').insert({
+      project_id: projectId, task_id: taskId, label, url,
+    });
+    check(error);
+  },
+  async deleteTaskLink(id: string, version: number): Promise<void> {
+    await versionedDelete('task_links', id, version);
+  },
+  async markNoticeRead(id: string): Promise<void> {
+    const { error } = await client().rpc('mark_assignment_notice_read', { p_notice_id: id });
+    check(error);
   },
 };

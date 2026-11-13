@@ -53,6 +53,18 @@ try {
   await db.exec(assignmentGuard);
   const memberManagement = readFileSync(new URL('../supabase/migrations/202611130003_manage_project_members.sql', import.meta.url), 'utf8');
   await db.exec(memberManagement);
+  const taskLinks = readFileSync(new URL('../supabase/migrations/202611130004_task_links.sql', import.meta.url), 'utf8');
+  await db.exec(taskLinks);
+  const sequentialCompletion = readFileSync(new URL('../supabase/migrations/202611130005_sequential_completion.sql', import.meta.url), 'utf8');
+  await db.exec(sequentialCompletion);
+  const activityLogs = readFileSync(new URL('../supabase/migrations/202611130006_activity_logs.sql', import.meta.url), 'utf8');
+  await db.exec(activityLogs);
+  const assignmentNotices = readFileSync(new URL('../supabase/migrations/202611130007_assignment_notices.sql', import.meta.url), 'utf8');
+  await db.exec(assignmentNotices);
+  const stackOrder = readFileSync(new URL('../supabase/migrations/202611130008_stack_order.sql', import.meta.url), 'utf8');
+  await db.exec(stackOrder);
+  const taskOrder = readFileSync(new URL('../supabase/migrations/202611130009_task_order.sql', import.meta.url), 'utf8');
+  await db.exec(taskOrder);
 
   for (const [name, id] of Object.entries(ids)) {
     await db.query(
@@ -114,10 +126,53 @@ try {
     [projectId, stack.rows[0].id, [member.rows[0].id]],
   ));
   const taskId = task.rows[0].id;
+  const memberNotice = await asUser(ids.member, () => db.query(
+    'select id, kind from public.assignment_notices where project_id=$1', [projectId],
+  ));
+  assert.equal(memberNotice.rows.length, 1, 'assignee must receive a notice');
+  assert.equal(memberNotice.rows[0].kind, 'task_assigned');
+  assert.equal((await asUser(ids.outsider, () => db.query(
+    'select count(*)::int as n from public.assignment_notices where project_id=$1', [projectId],
+  ))).rows[0].n, 0, 'outsider must not see notices');
+  await expectDenied(() => asUser(ids.owner, () => db.query(
+    'select public.mark_assignment_notice_read($1)', [memberNotice.rows[0].id],
+  )));
+  await asUser(ids.member, () => db.query(
+    'select public.mark_assignment_notice_read($1)', [memberNotice.rows[0].id],
+  ));
+  assert.ok((await asUser(ids.owner, () => db.query(
+    "select count(*)::int as n from public.activity_logs where project_id=$1 and action_type='create_task'",
+    [projectId],
+  ))).rows[0].n >= 1, 'task creation must be recorded');
+  assert.equal((await asUser(ids.outsider, () => db.query(
+    'select count(*)::int as n from public.activity_logs where project_id=$1', [projectId],
+  ))).rows[0].n, 0, 'outsider must not read activity');
+  await expectDenied(() => asUser(ids.member, () => db.query(
+    "insert into public.activity_logs(project_id,actor_name,action_type,target_title) values ($1,'fake','check','Task')",
+    [projectId],
+  )));
   const ownerMember = await asUser(ids.owner, () => db.query(
     'select id from public.project_members where project_id=$1 and user_id=$2',
     [projectId, ids.owner],
   ));
+
+  const link = await asUser(ids.owner, () => db.query(
+    "insert into public.task_links(project_id,task_id,label,url) values ($1,$2,'Design','https://example.com/design') returning id",
+    [projectId, taskId],
+  ));
+  await expectDenied(() => asUser(ids.member, () => db.query(
+    "insert into public.task_links(project_id,task_id,label,url) values ($1,$2,'Wrong','https://example.com')",
+    [projectId, taskId],
+  )));
+  assert.equal((await asUser(ids.outsider, () => db.query(
+    'select count(*)::int as n from public.task_links where project_id=$1', [projectId],
+  ))).rows[0].n, 0);
+  assert.equal((await asUser(ids.admin, () => db.query(
+    'select count(*)::int as n from public.task_links where project_id=$1', [projectId],
+  ))).rows[0].n, 1);
+  assert.equal((await asUser(ids.admin, () => db.query(
+    'delete from public.task_links where id=$1 returning id', [link.rows[0].id],
+  ))).rows.length, 0, 'admin must not delete a task link');
 
   await expectDenied(() => asUser(ids.member, () => db.query(
     'insert into public.task_assignees(task_id,member_id,project_id) values ($1,$2,$3)',
@@ -141,8 +196,24 @@ try {
   await expectDenied(() => asUser(ids.owner, () => db.query(
     'update public.tasks set completed=true where id=$1', [taskId],
   )));
+  const laterTask = await asUser(ids.owner, () => db.query(
+    "select public.create_task_with_assignees($1,$2,'Later','', 'medium', null, $3::uuid[]) as id",
+    [projectId, stack.rows[0].id, [member.rows[0].id]],
+  ));
+  await asUser(ids.owner, () => db.query(
+    'update public.tasks set position=1 where id=$1', [laterTask.rows[0].id],
+  ));
+  await asUser(ids.owner, () => db.query(
+    'update public.stacks set sequential_lock=true where id=$1', [stack.rows[0].id],
+  ));
+  await expectDenied(() => asUser(ids.member, () => db.query(
+    'update public.tasks set completed=true where id=$1', [laterTask.rows[0].id],
+  )));
   await asUser(ids.member, () => db.query(
     'update public.tasks set completed=true where id=$1 and version=1 returning version', [taskId],
+  ));
+  await asUser(ids.member, () => db.query(
+    'update public.tasks set completed=true where id=$1', [laterTask.rows[0].id],
   ));
   const second = await asUser(ids.member, () => db.query(
     'update public.tasks set completed=false where id=$1 and version=1 returning version', [taskId],
@@ -183,6 +254,27 @@ try {
   assert.equal((await asUser(ids.member, () => db.query(
     'select access_role from public.project_members where id=$1', [member.rows[0].id],
   ))).rows[0].access_role, 'owner');
+  const laterVersion = (await asUser(ids.member, () => db.query(
+    'select version from public.tasks where id=$1', [laterTask.rows[0].id],
+  ))).rows[0].version;
+  await asUser(ids.member, () => db.query(
+    "select public.move_task($1,'up',$2)", [laterTask.rows[0].id, laterVersion],
+  ));
+  assert.equal((await asUser(ids.member, () => db.query(
+    'select id from public.tasks where stack_id=$1 order by position limit 1', [stack.rows[0].id],
+  ))).rows[0].id, laterTask.rows[0].id);
+  const laterStack = await asUser(ids.member, () => db.query(
+    "select public.create_stack($1,'Later Stack') as id", [projectId],
+  ));
+  await expectDenied(() => asUser(ids.outsider, () => db.query(
+    "select public.create_stack($1,'Intrusion')", [projectId],
+  )));
+  await asUser(ids.member, () => db.query(
+    "select public.move_stack($1,'up',1)", [laterStack.rows[0].id],
+  ));
+  assert.equal((await asUser(ids.member, () => db.query(
+    'select id from public.stacks where project_id=$1 order by position limit 1', [projectId],
+  ))).rows[0].id, laterStack.rows[0].id);
 
   console.log('v3 schema: RLS, invitations, completion, membership, admin access and version conflict passed');
 } finally {

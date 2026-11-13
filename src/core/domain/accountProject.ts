@@ -27,6 +27,7 @@ export interface ProjectStack {
   sequential_lock: boolean;
   collapsed: boolean;
   version: number;
+  created_at: string;
 }
 
 export interface ProjectTask {
@@ -43,6 +44,7 @@ export interface ProjectTask {
   created_by_member_id: string | null;
   completed_by_member_id: string | null;
   version: number;
+  created_at: string;
 }
 
 export interface TaskAssignee {
@@ -63,6 +65,39 @@ export interface ProjectSubtask {
   version: number;
 }
 
+export interface ProjectTaskLink {
+  id: string;
+  project_id: string;
+  task_id: string;
+  label: string;
+  url: string;
+  position: number;
+  version: number;
+}
+
+export interface ProjectActivity {
+  id: string;
+  project_id: string;
+  actor_name: string;
+  action_type: string;
+  target_title: string;
+  detail: string;
+  created_at: string;
+}
+
+export interface ProjectNotice {
+  id: string;
+  project_id: string;
+  recipient_member_id: string;
+  actor_name: string;
+  kind: 'task_assigned' | 'subtask_assigned';
+  task_id: string;
+  task_title: string;
+  subtask_title: string | null;
+  created_at: string;
+  read_at: string | null;
+}
+
 export interface ProjectData {
   project: AccountProject;
   members: ProjectMember[];
@@ -70,9 +105,12 @@ export interface ProjectData {
   tasks: ProjectTask[];
   assignees: TaskAssignee[];
   subtasks: ProjectSubtask[];
+  links: ProjectTaskLink[];
+  activities: ProjectActivity[];
+  notices: ProjectNotice[];
 }
 
-export type ProjectTable = 'project' | 'members' | 'stacks' | 'tasks' | 'assignees' | 'subtasks';
+export type ProjectTable = 'project' | 'members' | 'stacks' | 'tasks' | 'assignees' | 'subtasks' | 'links' | 'activities' | 'notices';
 
 export function canManageTask(task: ProjectTask, actor: ProjectMember | null): boolean {
   return Boolean(actor?.active &&
