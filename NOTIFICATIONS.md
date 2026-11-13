@@ -7,7 +7,7 @@
 - Khi app đang nhận đồng bộ, notice mới đi tới hộp chuông và, nếu người dùng cho phép, thông báo Android hoặc trình duyệt. Thông báo hệ thống có người giao, tên việc và Stack; Stack được tra từ snapshot lúc phát, không lưu trùng trong notice.
 - Android dùng channel `Việc được giao` với mức quan trọng mặc định. Web chỉ xin quyền sau khi người dùng bấm trong hộp chuông. Bấm thông báo hệ thống mở đúng đầu việc và đánh dấu notice đã đọc.
 - Tab Web hiển thị số chưa đọc ổn định cùng tên Stack mới nhất, ví dụ `(3) StackFlow — Stack 2`.
-- Nút bánh răng trong hộp chuông mở cài đặt: bật/tắt âm khi trang đang mở, chọn và nghe thử 10 âm ngắn, âm lượng và số chưa đọc trên tiêu đề tab. Lựa chọn lưu riêng theo dự án/thành viên trên trình duyệt hiện tại. Nút báo nổi thiết bị vẫn ở phía trên hộp chuông.
+- Nút bánh răng trong hộp chuông mở cài đặt: bật/tắt âm khi trang đang hiển thị, chọn và nghe thử 10 âm ngắn, âm lượng và số chưa đọc trên tiêu đề tab. Tắt âm sẽ dừng âm đang phát và khóa nút nghe thử cho đến khi bật lại. Lựa chọn lưu riêng theo dự án/thành viên trên trình duyệt hiện tại. Công tắc thông báo nổi của thiết bị vẫn ở phía trên hộp chuông và độc lập với âm trong trang.
 - Một checkpoint nhỏ theo từng thành viên giúp đối chiếu việc được giao khi mở lại app trên cùng thiết bị. Các notice phát hiện lúc mở lại được thêm vào hộp chuông mà không phát một loạt thông báo hệ thống cũ.
 
 ## Push khi đóng ứng dụng

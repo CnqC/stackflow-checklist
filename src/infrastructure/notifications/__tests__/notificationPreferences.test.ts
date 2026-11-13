@@ -3,6 +3,7 @@ import { sanitizeNotificationPreferences } from '../../../core/domain/notificati
 import type { AppNotice } from '../../../types/models';
 import { notificationPreferencesStore } from '../notificationPreferencesStore';
 import { NotificationService } from '../notificationService';
+import { notificationSoundService } from '../notificationSoundService';
 
 describe('Notification preferences and sound', () => {
   beforeEach(() => window.localStorage.clear());
@@ -41,6 +42,26 @@ describe('Notification preferences and sound', () => {
       service.dispatchNotices([makeNotice('d')]);
       expect(play).toHaveBeenCalledTimes(2);
     } finally {
+      play.mockRestore();
+      pause.mockRestore();
+    }
+  });
+
+  it('stops a playing sound on mute and applies volume changes immediately', async () => {
+    const play = vi.spyOn(HTMLMediaElement.prototype, 'play').mockResolvedValue();
+    const pause = vi.spyOn(HTMLMediaElement.prototype, 'pause').mockImplementation(() => {});
+    try {
+      notificationPreferencesStore.update('room', 'member-a', { soundEnabled: true, soundVolume: 0.5 });
+      expect(await notificationSoundService.preview('room', 'member-a')).toBe(true);
+      const audio = play.mock.instances.at(-1) as HTMLAudioElement;
+      notificationPreferencesStore.update('room', 'member-a', { soundVolume: 0.2 });
+      expect(audio.volume).toBe(0.2);
+      notificationPreferencesStore.update('room', 'member-a', { soundEnabled: false });
+      expect(pause.mock.instances).toContain(audio);
+      expect(await notificationSoundService.preview('room', 'member-a')).toBe(false);
+      expect(play).toHaveBeenCalledTimes(1);
+    } finally {
+      notificationSoundService.stop();
       play.mockRestore();
       pause.mockRestore();
     }

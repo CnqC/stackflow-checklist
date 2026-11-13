@@ -493,11 +493,16 @@ export const TeamAndCloudModal: React.FC<TeamAndCloudModalProps> = ({
               </div>
 
               <div className="rounded-xl bg-slate-950 border border-slate-800 p-4 space-y-2">
-                <div className="font-semibold text-white">2. Bản iPhone / iPad (iOS PWA) &amp; Máy tính</div>
+                <div className="font-semibold text-white">2. Bản iPhone / iPad và máy tính</div>
                 <p className="text-slate-400">
                   Trên Safari iPhone: Bấm nút <strong>Chia sẻ (Share)</strong> ở cạnh dưới → Chọn{' '}
                   <strong>Thêm vào Màn hình chính (Add to Home Screen)</strong>. Ứng dụng sẽ hiển thị biểu tượng
                   StackFlow riêng và đồng bộ thời gian thực cùng cả nhóm.
+                </p>
+                <p className="text-slate-400">
+                  Trên Windows: Mở trang này bằng <strong>Microsoft Edge</strong>, bấm biểu tượng cài ứng dụng
+                  trên thanh địa chỉ hoặc vào <strong>⋯ → Ứng dụng → Cài đặt trang này dưới dạng ứng dụng</strong>.
+                  Sau khi cài, bạn có thể ghim StackFlow vào Start hoặc thanh tác vụ.
                 </p>
               </div>
             </div>

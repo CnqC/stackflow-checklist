@@ -245,7 +245,7 @@ export const NotificationBell: React.FC<NotificationBellProps> = ({
                 {deviceAlertsEnabled
                   ? <Check className="w-4 h-4 text-emerald-400 shrink-0" />
                   : <Bell className="w-4 h-4 text-slate-400 shrink-0" />}
-                <span className="font-medium">Báo trên thiết bị: {deviceAlertsEnabled ? 'Bật' : 'Tắt'}</span>
+                <span className="font-medium">Thông báo nổi trên thiết bị: {deviceAlertsEnabled ? 'Bật' : 'Tắt'}</span>
               </button>
             ) : permission === 'denied' ? (
               <div className="text-[11px] text-amber-300 bg-amber-500/10 border border-amber-500/25 rounded-xl px-3 py-2 leading-relaxed">
