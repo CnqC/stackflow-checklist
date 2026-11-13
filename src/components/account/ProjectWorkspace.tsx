@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from 'react';
-import { Activity, ArrowLeft, Check, CheckSquare2, ChevronDown, ChevronRight, ChevronUp, ExternalLink, Filter, Link2, Lock, Plus, Search, Settings2, Trash2, Unlock, UserCheck, Users } from 'lucide-react';
+import { Activity, ArrowLeft, Check, CheckSquare2, ChevronDown, ChevronRight, ChevronUp, ExternalLink, Filter, Link2, Lock, Pencil, Plus, Search, Settings2, Trash2, Unlock, UserCheck, Users, X } from 'lucide-react';
 import {
   canManageTask,
   canToggleSubtask,
@@ -37,6 +37,7 @@ function draftFromTask(task: ProjectTask) {
   return {
     version: task.version, dirty: false, title: task.title, notes: task.notes,
     status: task.status, priority: task.priority, dueDate: task.due_date ?? '',
+    stackId: task.stack_id,
   };
 }
 
@@ -88,6 +89,9 @@ function TaskCard({ task, stack, data, actor, busy, mutate, selectedTaskId, onCl
   const [newAssignee, setNewAssignee] = useState('');
   const [newLinkLabel, setNewLinkLabel] = useState('');
   const [newLinkUrl, setNewLinkUrl] = useState('');
+  const [editingSubtaskId, setEditingSubtaskId] = useState<string | null>(null);
+  const [subtaskTitleDraft, setSubtaskTitleDraft] = useState('');
+  const [subtaskAssigneeDraft, setSubtaskAssigneeDraft] = useState('');
   const [draft, setDraft] = useState(() => draftFromTask(task));
   const isExpanded = expanded || selectedTaskId === task.id;
   const toggleExpanded = () => { if (selectedTaskId === task.id) onClearSelectedTask(); else setExpanded((value) => !value); };
@@ -115,6 +119,7 @@ function TaskCard({ task, stack, data, actor, busy, mutate, selectedTaskId, onCl
       title: currentDraft.title.trim(), notes: currentDraft.notes.trim(),
       status: currentDraft.status, priority: currentDraft.priority,
       due_date: currentDraft.dueDate || null,
+      stack_id: currentDraft.stackId,
     }));
     if (saved) setDraft({ ...currentDraft, dirty: false });
   }
@@ -166,7 +171,10 @@ function TaskCard({ task, stack, data, actor, busy, mutate, selectedTaskId, onCl
       {actor?.access_role === 'owner' && <div className="flex flex-col"><button type="button" disabled={busy || orderIndex === 0} aria-label={`Đưa ${task.title} lên trên`} onClick={() => void mutate(() => accountProjectRepository.moveTask(task.id, task.version, 'up'))} className="text-slate-400 disabled:opacity-30"><ChevronUp className="h-4 w-4" /></button><button type="button" disabled={busy || orderIndex === taskOrder.length - 1} aria-label={`Đưa ${task.title} xuống dưới`} onClick={() => void mutate(() => accountProjectRepository.moveTask(task.id, task.version, 'down'))} className="text-slate-400 disabled:opacity-30"><ChevronDown className="h-4 w-4" /></button></div>}
     </div>
 
-    {isExpanded && <div className="mt-4 space-y-4 border-t border-slate-800 pt-4">
+    {isExpanded && <div role="dialog" aria-modal="true" aria-label={`Chi tiết đầu việc ${task.title}`} onMouseDown={(event) => { if (event.target === event.currentTarget) toggleExpanded(); }} className="fixed inset-0 z-50 flex justify-end bg-black/60 backdrop-blur-sm">
+      <div className="flex h-dvh w-full max-w-lg flex-col border-l border-slate-800 bg-slate-900 shadow-2xl">
+        <header className="flex items-center justify-between border-b border-slate-800 px-5 py-4"><h2 className="text-xs font-bold uppercase tracking-wider text-indigo-300">Chi tiết đầu việc</h2><button type="button" onClick={toggleExpanded} aria-label="Đóng chi tiết việc" className="rounded-lg bg-slate-800 p-2 text-slate-300"><X className="h-4 w-4" /></button></header>
+        <div className="flex-1 space-y-5 overflow-y-auto p-5">
       {manager ? <form onSubmit={(event) => void saveDetails(event)} className="space-y-2">
         {currentDraft.version !== task.version && <div className="rounded-lg border border-amber-500/40 bg-amber-500/10 p-2 text-xs text-amber-300">Việc này vừa được cập nhật trên thiết bị khác. Nội dung bạn đang nhập vẫn còn; hãy đối chiếu trước khi dùng bản mới. <button type="button" onClick={() => setDraft(draftFromTask(task))} className="ml-1 font-semibold underline">Dùng bản mới</button></div>}
         <label className="block text-xs text-slate-400">Tên việc<input value={currentDraft.title} onChange={(event) => setDraft({ ...currentDraft, title: event.target.value, dirty: true })} required maxLength={240} className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-950 p-2.5 text-sm text-foreground" /></label>
@@ -176,6 +184,7 @@ function TaskCard({ task, stack, data, actor, busy, mutate, selectedTaskId, onCl
           <label className="block text-xs text-slate-400">Ưu tiên<select value={currentDraft.priority} onChange={(event) => setDraft({ ...currentDraft, priority: event.target.value as ProjectTask['priority'], dirty: true })} className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-950 p-2.5 text-sm text-foreground"><option value="low">Thấp</option><option value="medium">Vừa</option><option value="high">Cao</option></select></label>
           <label className="block text-xs text-slate-400">Hạn chót<input type="date" value={currentDraft.dueDate} onChange={(event) => setDraft({ ...currentDraft, dueDate: event.target.value, dirty: true })} className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-950 p-2.5 text-sm text-foreground" /></label>
         </div>
+        <label className="block text-xs text-slate-400">Stack<select value={currentDraft.stackId} onChange={(event) => setDraft({ ...currentDraft, stackId: event.target.value, dirty: true })} className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-950 p-2.5 text-sm text-foreground">{data.stacks.map((entry) => <option key={entry.id} value={entry.id}>{entry.title}</option>)}</select></label>
         <button type="submit" disabled={busy} className="rounded-lg border border-indigo-500 px-3 py-2 text-xs font-semibold text-indigo-200 disabled:opacity-50">Lưu thay đổi</button>
       </form> : <p className="text-sm text-slate-300">{task.notes || 'Chưa có ghi chú.'}</p>}
 
@@ -199,13 +208,18 @@ function TaskCard({ task, stack, data, actor, busy, mutate, selectedTaskId, onCl
         <div className="mt-2 space-y-2">
           {subtasks.map((subtask: ProjectSubtask) => {
             const allowed = canToggleSubtask(subtask, data.assignees, actor);
-            return <div key={subtask.id} className="flex items-center gap-2 rounded-lg bg-slate-950 p-2">
+            return editingSubtaskId === subtask.id && manager ? <form key={subtask.id} onSubmit={(event) => { event.preventDefault(); void mutate(() => accountProjectRepository.updateSubtask(subtask.id, subtask.version, { title: subtaskTitleDraft.trim(), assignee_member_id: subtaskAssigneeDraft || null })).then((saved) => { if (saved) setEditingSubtaskId(null); }); }} className="grid gap-2 rounded-lg bg-slate-950 p-2 sm:grid-cols-[1fr_auto_auto]">
+              <input value={subtaskTitleDraft} onChange={(event) => setSubtaskTitleDraft(event.target.value)} required maxLength={240} aria-label="Sửa tên phần việc nhỏ" className="min-h-9 rounded-lg border border-slate-700 bg-slate-900 px-2 text-xs text-foreground" />
+              <select value={subtaskAssigneeDraft} onChange={(event) => setSubtaskAssigneeDraft(event.target.value)} aria-label="Sửa người phụ trách phần việc nhỏ" className="min-h-9 rounded-lg border border-slate-700 bg-slate-900 px-2 text-xs text-foreground"><option value="">Theo việc lớn</option>{data.members.filter((member) => member.active).map((member) => <option key={member.id} value={member.id}>{member.display_name}</option>)}</select>
+              <div className="flex gap-2"><button type="submit" disabled={busy} className="rounded-lg bg-indigo-600 px-2 text-xs text-white disabled:opacity-50">Lưu</button><button type="button" onClick={() => setEditingSubtaskId(null)} className="text-xs text-slate-400">Hủy</button></div>
+            </form> : <div key={subtask.id} className="flex items-center gap-2 rounded-lg bg-slate-950 p-2">
               <button type="button" aria-label={subtask.completed ? 'Mở lại phần việc nhỏ' : 'Hoàn thành phần việc nhỏ'}
                 disabled={!allowed || busy} title={allowed ? '' : 'Chỉ người phụ trách được đánh dấu'}
                 onClick={() => void mutate(() => accountProjectRepository.updateSubtask(subtask.id, subtask.version, { completed: !subtask.completed }))}
                 className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-md border disabled:opacity-50 ${subtask.completed ? 'border-emerald-400 bg-emerald-500 text-white' : 'border-slate-600'}`}>{subtask.completed && <Check className="h-4 w-4" />}</button>
               <span className={`min-w-0 flex-1 text-xs ${subtask.completed ? 'text-slate-500 line-through' : 'text-slate-200'}`}>{subtask.title}</span>
               <span className="max-w-28 truncate text-[11px] text-slate-400">{memberName(data.members, subtask.assignee_member_id)}</span>
+              {manager && <><button type="button" onClick={() => { setEditingSubtaskId(subtask.id); setSubtaskTitleDraft(subtask.title); setSubtaskAssigneeDraft(subtask.assignee_member_id ?? ''); }} aria-label={`Sửa ${subtask.title}`} className="text-slate-400 hover:text-indigo-300"><Pencil className="h-3.5 w-3.5" /></button><button type="button" disabled={busy} onClick={() => { if (window.confirm(`Xóa phần việc “${subtask.title}”?`)) void mutate(() => accountProjectRepository.deleteSubtask(subtask.id, subtask.version)); }} aria-label={`Xóa ${subtask.title}`} className="text-slate-400 hover:text-red-300 disabled:opacity-50"><Trash2 className="h-3.5 w-3.5" /></button></>}
             </div>;
           })}
           {subtasks.length === 0 && <p className="text-xs text-slate-500">Chưa chia phần việc nhỏ.</p>}
@@ -233,6 +247,8 @@ function TaskCard({ task, stack, data, actor, busy, mutate, selectedTaskId, onCl
           void mutate(() => accountProjectRepository.deleteTask(task.id, task.version));
         }
       }} className="text-xs text-red-300 disabled:opacity-50">Xóa việc này</button>}
+        </div>
+      </div>
     </div>}
   </article>;
 }
