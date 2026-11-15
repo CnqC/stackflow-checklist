@@ -13,8 +13,35 @@ export interface ProjectMember {
   user_id: string;
   display_name: string;
   job_title: string;
+  avatar_color?: string;
   access_role: 'owner' | 'member';
   active: boolean;
+}
+
+export interface PendingEmailInvitation {
+  id: string;
+  invitedEmail: string;
+  invitedJobTitle: string;
+  accessRole: 'owner' | 'member';
+  expiresAt: string;
+  createdAt: string;
+}
+
+export interface ProjectJoinLinkInfo {
+  projectId: string;
+  joinCode: string;
+  enabled: boolean;
+  defaultJobTitle: string;
+  expiresAt: string | null;
+  useCount: number;
+}
+
+export interface JoinCodePreview {
+  projectId: string;
+  projectCode: string;
+  projectName: string;
+  defaultJobTitle: string;
+  alreadyMember: boolean;
 }
 
 export interface ProjectStack {
@@ -79,6 +106,7 @@ export interface ProjectTaskLink {
 export interface ProjectActivity {
   id: string;
   project_id: string;
+  actor_user_id?: string | null;
   actor_name: string;
   action_type: string;
   target_title: string;
@@ -111,11 +139,19 @@ export interface ProjectData {
   notices: ProjectNotice[];
 }
 
-export type ProjectTable = 'project' | 'members' | 'stacks' | 'tasks' | 'assignees' | 'subtasks' | 'links' | 'activities' | 'notices';
+export type ProjectTable =
+  | 'project'
+  | 'members'
+  | 'stacks'
+  | 'tasks'
+  | 'assignees'
+  | 'subtasks'
+  | 'links'
+  | 'activities'
+  | 'notices';
 
-export function canManageTask(task: ProjectTask, actor: ProjectMember | null): boolean {
-  return Boolean(actor?.active &&
-    (actor.access_role === 'owner' || task.created_by_member_id === actor.id));
+export function canManageTask(_task: ProjectTask, actor: ProjectMember | null): boolean {
+  return Boolean(actor?.active);
 }
 
 export function canToggleTask(
@@ -123,8 +159,9 @@ export function canToggleTask(
   assignees: readonly TaskAssignee[],
   actor: ProjectMember | null,
 ): boolean {
-  return Boolean(actor?.active &&
-    assignees.some((entry) => entry.task_id === task.id && entry.member_id === actor.id));
+  return Boolean(
+    actor?.active && assignees.some((entry) => entry.task_id === task.id && entry.member_id === actor.id),
+  );
 }
 
 export function canToggleSubtask(

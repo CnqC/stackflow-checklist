@@ -2,7 +2,6 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { captureAssignmentCheckpoint, detectNewAssignmentNotices } from '../../../core/domain/notificationDiffEngine';
 import { createSeedWorkspaceSnapshot } from '../../../core/domain/stackDomain';
 import type { AppNotice, WorkspaceSnapshot } from '../../../types/models';
-import { StackFlowSyncService } from '../../../services/syncService';
 import { NotificationService, notificationService } from '../notificationService';
 
 describe('Notification experience', () => {
@@ -18,10 +17,11 @@ describe('Notification experience', () => {
 
     const after: WorkspaceSnapshot = {
       ...before,
-      items: before.items.map((item) => item.id === target.id
-        ? { ...item, assigneeIds: [...item.assigneeIds, minh.id], updatedByName: quang.name,
-            updatedAt: '2026-11-12T10:00:00.000Z' }
-        : item),
+      items: before.items.map((item) =>
+        item.id === target.id
+          ? { ...item, assigneeIds: [...item.assigneeIds, minh.id], updatedByName: quang.name, updatedAt: '2026-11-12T10:00:00.000Z' }
+          : item,
+      ),
     };
     const restartedSession = new NotificationService();
     const checkpoint = restartedSession.getAssignmentCheckpoint(before.workspace.id, minh.id);
@@ -33,43 +33,39 @@ describe('Notification experience', () => {
 
     const dbTimestamp = {
       ...after,
-      items: after.items.map((item) => item.id === target.id
-        ? { ...item, updatedAt: '2026-11-12T10:00:00+00:00' } : item),
+      items: after.items.map((item) =>
+        item.id === target.id ? { ...item, updatedAt: '2026-11-12T10:00:00+00:00' } : item,
+      ),
     };
     expect(detectNewAssignmentNotices(checkpoint, dbTimestamp, minh.id)[0]!.id).toBe(notices[0]!.id);
 
     restartedSession.saveAssignmentCheckpoint(after, minh.id);
-    expect(detectNewAssignmentNotices(
-      restartedSession.getAssignmentCheckpoint(before.workspace.id, minh.id), after, minh.id,
-    )).toEqual([]);
+    expect(detectNewAssignmentNotices(restartedSession.getAssignmentCheckpoint(before.workspace.id, minh.id), after, minh.id)).toEqual([]);
     expect(detectNewAssignmentNotices(null, after, minh.id)).toEqual([]);
   });
 
-  it('restores a missed assignment when the member signs back into a local workspace', async () => {
-    const firstSession = new StackFlowSyncService();
-    const { snapshot, creator } = await firstSession.createWorkspace({
-      code: 'NOTICE-REOPEN',
-      name: 'Kiểm tra thông báo',
-      pinCode: '4321',
-      creatorName: 'Quang',
-    });
-    const minh = await firstSession.addMember('Minh');
-    firstSession.setActiveMember(minh);
-    firstSession.teardownConnections();
+  it('restores a missed assignment into the inbox when reopening a project snapshot', () => {
+    const before = createSeedWorkspaceSnapshot('ACC-PROJECT', 'Dự Án Google');
+    const quang = before.members[0]!;
+    const minh = before.members[1]!;
+    const target = before.items.find((item) => !item.completed && !item.assigneeIds.includes(minh.id))!;
+    notificationService.saveAssignmentCheckpoint(before, minh.id);
 
-    const colleagueSession = new StackFlowSyncService();
-    await colleagueSession.joinWorkspaceByPin(snapshot.workspace.code, snapshot.workspace.pinCode);
-    colleagueSession.setActiveMember(creator);
-    await colleagueSession.updateItem(snapshot.items[0]!.id, {
-      assigneeIds: [creator.id, minh.id],
-    }, creator);
-    colleagueSession.teardownConnections();
+    const updated: WorkspaceSnapshot = {
+      ...before,
+      items: before.items.map((item) =>
+        item.id === target.id
+          ? { ...item, assigneeIds: [quang.id, minh.id], assigneeId: quang.id, updatedByName: quang.name, updatedAt: '2026-11-16T08:00:00.000Z' }
+          : item,
+      ),
+    };
 
-    const reopenedSession = new StackFlowSyncService();
-    await reopenedSession.joinWorkspaceByPin(snapshot.workspace.code, snapshot.workspace.pinCode);
-    reopenedSession.setActiveMember(minh);
-    expect(notificationService.getUnreadCount(snapshot.workspace.id, minh.id)).toBe(1);
-    reopenedSession.teardownConnections();
+    const checkpoint = notificationService.getAssignmentCheckpoint(before.workspace.id, minh.id);
+    const missedNotices = detectNewAssignmentNotices(checkpoint, updated, minh.id);
+    notificationService.dispatchNotices(missedNotices, { deviceAlert: false, snapshot: updated });
+    notificationService.saveAssignmentCheckpoint(updated, minh.id);
+
+    expect(notificationService.getUnreadCount(before.workspace.id, minh.id)).toBe(1);
   });
 
   it('keeps unread notices when read history is cleared and opens browser popups', async () => {

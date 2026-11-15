@@ -15,6 +15,7 @@ Mốc đối chiếu: giao diện và luồng làm việc của bản PIN trên 
 | Push khi ứng dụng đã đóng | Chưa chuyển sang xác thực tài khoản | Cần cập nhật Edge Function, thiết bị đăng ký bằng JWT và cấu hình Firebase/Web Push |
 | Thao tác offline và đồng bộ khi có mạng trở lại | Chưa chuyển | Cần hàng đợi cục bộ có xử lý xung đột và kiểm thử mất mạng |
 | Bảng chi tiết việc dạng drawer, chỉnh sửa phần việc nhỏ, bố cục sát bản cũ | Đã thêm tại local | Cần kiểm thử với dữ liệu thật, Android và tiếp tục tinh chỉnh giao diện |
+| Tái sử dụng component Stack, drawer và nhật ký của giao diện V2 | Đã nối vào workspace tài khoản trên nhánh `v2-google-auth` | Kiểm thử thao tác thật và đối chiếu phần còn khác của khung ứng dụng |
 | PWA Windows, APK Android đăng nhập Google | Mã callback đã có | Cần thử trên thiết bị thật |
 
-Không bật production v3 cho tới khi các dòng còn thiếu được hoàn thành hoặc chủ dự án thay đổi phạm vi bằng quyết định mới. Schema v3 đã có migrations `001`–`010` trên project `xwzwsysekkizxmmjjjvn`; project PIN cũ và GitHub Pages chưa chuyển.
+Không bật production v3 cho tới khi các dòng còn thiếu được hoàn thành hoặc chủ dự án thay đổi phạm vi bằng quyết định mới. Schema tài khoản đã có migrations `001`–`011` trên project `xwzwsysekkizxmmjjjvn`; project PIN cũ và GitHub Pages chưa chuyển.

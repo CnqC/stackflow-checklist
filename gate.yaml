@@ -1,0 +1,32 @@
+# ============================================================================
+# RÀO CHẮN AN TOÀN VÒNG LẶP BẢO TRÌ (cobusgreyling/loop-engineering + Cloudflare Audit)
+# Được kiểm tra tự động bởi: npm run doctor (scripts/loop-doctor.mjs)
+# ============================================================================
+version: 1
+
+# Các đường dẫn nhạy cảm bắt buộc phải có con người (Quang) duyệt trực tiếp khi sửa
+denylist:
+  - "**/.env"
+  - "**/.env.*"
+  - "**/secrets/**"
+  - "**/*.jks"
+  - "**/*.keystore"
+  - "database/**"
+  - "src-tauri/tauri.conf.json"
+  - "capacitor.config.ts"
+
+# Giới hạn tối đa số file sửa trong 1 lát cắt bảo trì/refactor (chống AI đập phá 40 file cùng lúc)
+maxFiles: 10
+
+# Ngưỡng kỷ luật giữ code sạch nhiều năm không mục nát
+architectureLimits:
+  maxLinesPerSourceFile: 250
+  forbidExplicitAny: true
+  requireSupabaseRLS: true
+
+# Các file an toàn có thể cập nhật nhanh sau khi Verifier pass
+autoMergeAllowlist:
+  - "docs/**"
+  - "specs/**"
+  - "**/*.md"
+  - "tests/**/*.test.{ts,tsx}"

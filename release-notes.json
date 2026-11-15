@@ -1,8 +1,9 @@
 {
-  "title": "Cập nhật ứng dụng",
+  "title": "StackFlow 1.2.0: Hợp nhất Giao diện App V2 & Đăng nhập Google Cloud",
   "changes": [
-    "Kiểm tra phiên bản mới trong Cài đặt và nhận nhắc khi có bản cập nhật.",
-    "Bản cài Windows và Web có nút tải lại sau khi phiên bản mới sẵn sàng.",
-    "Android APK có đường dẫn tải bản phát hành mới và hướng dẫn cài đè."
+    "Thay thế hoàn toàn mã PIN phòng bằng đăng nhập Google OAuth 1 chạm kèm màn hình chào mừng chuẩn phong cách App V2.",
+    "Nâng cấp mời thành viên đa kênh: Link & Mã mời nhanh SF-XXXXXX cho Zalo/Discord (tự nhận diện ?join= khi đăng nhập) kết hợp mời đích danh qua Gmail.",
+    "Giữ trọn vẹn 100% trải nghiệm App V2: Stack tuần tự, phần việc nhỏ, đính kèm Link, 9 giao diện màu, đếm Online trực tiếp và Chuông báo việc đa nền tảng.",
+    "Hỗ trợ cài đặt 1 chạm cho Web, Desktop PWA (Windows/Mac) và gói cài đặt gốc StackFlow-Checklist.apk trên Android."
   ]
 }

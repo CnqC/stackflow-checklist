@@ -2,15 +2,30 @@ import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import type { SupabaseRuntimeConfig } from '../types/models';
 
 const STORAGE_KEY = 'stackflow_supabase_runtime_config_v1';
+export const ACCOUNT_SUPABASE_HOST = 'xwzwsysekkizxmmjjjvn.supabase.co';
 
 let cachedClient: SupabaseClient | null = null;
 let cachedConfigSignature = '';
+let cachedAccountClient: SupabaseClient | null = null;
+let cachedAccountConfigSignature = '';
 
 export function getBundledSupabaseConfig(): SupabaseRuntimeConfig | null {
   const envUrl = (import.meta.env.VITE_SUPABASE_URL as string | undefined)?.trim() ?? '';
   const envKey = (import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined)?.trim() ?? '';
 
   return envUrl && envKey ? { url: envUrl, anonKey: envKey } : null;
+}
+
+export function getAccountSupabaseConfig(): SupabaseRuntimeConfig | null {
+  const config = getBundledSupabaseConfig();
+  if (!config) return null;
+  try {
+    const url = new URL(config.url);
+    return url.protocol === 'https:' && url.hostname === ACCOUNT_SUPABASE_HOST
+      ? config : null;
+  } catch {
+    return null;
+  }
 }
 
 export function getSupabaseConfig(): SupabaseRuntimeConfig | null {
@@ -77,6 +92,25 @@ export function getSupabaseClient(): SupabaseClient | null {
   });
   cachedConfigSignature = sig;
   return cachedClient;
+}
+
+/** The Google account app never reads the PIN client's saved browser override. */
+export function getAccountSupabaseClient(): SupabaseClient | null {
+  const config = getAccountSupabaseConfig();
+  if (!config) return null;
+  const signature = `${config.url}::${config.anonKey}`;
+  if (cachedAccountClient && cachedAccountConfigSignature === signature) return cachedAccountClient;
+  cachedAccountClient = createClient(config.url, config.anonKey, {
+    auth: {
+      flowType: 'pkce',
+      persistSession: true,
+      autoRefreshToken: true,
+      detectSessionInUrl: true,
+    },
+    realtime: { params: { eventsPerSecond: 20 } },
+  });
+  cachedAccountConfigSignature = signature;
+  return cachedAccountClient;
 }
 
 export async function verifySupabaseConnection(

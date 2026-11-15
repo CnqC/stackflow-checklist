@@ -22,6 +22,22 @@ allprojects {
         google()
         mavenCentral()
     }
+    plugins.withType(JavaBasePlugin) {
+        project.extensions.getByType(JavaPluginExtension).toolchain {
+            languageVersion = JavaLanguageVersion.of(21)
+        }
+    }
+}
+
+subprojects {
+    afterEvaluate { project ->
+        if (project.hasProperty('android')) {
+            def sdkDir = System.getenv('ANDROID_HOME') ?: System.getenv('ANDROID_SDK_ROOT')
+            if (sdkDir && new File(sdkDir, 'build-tools/36.0.0').exists() && !new File(sdkDir, 'build-tools/35.0.0').exists()) {
+                project.android.buildToolsVersion = '36.0.0'
+            }
+        }
+    }
 }
 
 task clean(type: Delete) {

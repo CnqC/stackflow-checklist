@@ -6,7 +6,7 @@
 2. **Đã áp dụng** cả ba migration `202611130001` đến `202611130003` lên project mới. Migration history và truy vấn read-only xác nhận 0 project, 0 admin. Không chạy migration trên project PIN cũ vì cùng tên bảng có cấu trúc khác.
 3. Trên Google Auth Platform tạo OAuth client loại **Web application**. Authorized JavaScript origins gồm origin của trang GitHub Pages thật và `http://localhost:5173` khi thử tại máy. Authorized redirect URI là callback Supabase hiển thị ở trang cấu hình Google provider, dạng `https://<project-ref>.supabase.co/auth/v1/callback`. Điền Client ID/Secret vào Supabase Auth → Providers → Google. Không đặt secret trong `.env` Vite.
 4. **Đã đặt** Site URL `https://cnqc.github.io/stackflow-checklist/` và Additional Redirect URLs gồm URL này, `http://localhost:5173/` và `com.quang.stackflow://auth/callback`; **đã tắt** email, phone và anonymous sign-in. URL dùng trong `redirectTo` phải khớp danh sách này.
-5. `.env` cục bộ đã trỏ sang project v3 với publishable key và `VITE_ACCOUNT_V3=true`. Chỉ đổi GitHub repository variables lúc sẵn sàng cutover, vì production vẫn cần project PIN cũ cho tới khi giao diện v3 phát hành.
+5. `.env` cục bộ đã trỏ sang project tài khoản với publishable key. Mã 1.2.0 trên nhánh tích hợp hiện mở đăng nhập Google mặc định, không dùng cờ `VITE_ACCOUNT_V3`; build từ chối URL database PIN. Chỉ đổi GitHub repository variables lúc sẵn sàng cutover, vì bản production hiện vẫn cần project PIN cũ.
 
 ## 2. Gán admin đúng người
 
@@ -46,6 +46,6 @@ Từ thư mục repo, có thể chạy `powershell -File scripts/backup-v3.ps1 -
 
 ## 5. Cutover
 
-Sau khi các bước trên đạt, đặt repository variable `VITE_ACCOUNT_V3=true`, phát hành Web/PWA và APK. Khởi tạo dự án mới; dữ liệu PIN cũ được phép bỏ theo quyết định của chủ dự án. Không trỏ client v3 vào database PIN cũ. Giữ bản backup trước mỗi đợt thay đổi schema và có thể tắt cờ v3 nếu cần quay lại client cũ trong khi chưa dùng dữ liệu v3 thật.
+Sau khi các bước trên đạt, đổi repository variables `VITE_SUPABASE_URL` và `VITE_SUPABASE_ANON_KEY` sang project tài khoản, rồi phát hành Web/PWA và APK từ mã tích hợp. Build sẽ dừng nếu URL vẫn là database PIN. Khởi tạo dự án mới; dữ liệu PIN cũ được phép bỏ theo quyết định của chủ dự án. Không trỏ client tài khoản vào database PIN cũ. Giữ bản backup trước mỗi đợt thay đổi schema và bản triển khai PIN trước cutover để có đường quay lại khi chưa dùng dữ liệu tài khoản thật.
 
 Tài liệu tham khảo: [Google OAuth](https://supabase.com/docs/guides/auth/social-sign-in/auth-google), [redirect URLs](https://supabase.com/docs/guides/auth/redirect-urls), [backup gói Free](https://supabase.com/docs/guides/platform/backups).

@@ -2,7 +2,7 @@ import type { AuthChangeEvent, Session, User } from '@supabase/supabase-js';
 import { App } from '@capacitor/app';
 import { Browser } from '@capacitor/browser';
 import { Capacitor } from '@capacitor/core';
-import { getSupabaseClient } from '../../services/supabaseConfig';
+import { getAccountSupabaseClient } from '../../services/supabaseConfig';
 
 export interface AccountIdentity {
   id: string;
@@ -13,7 +13,7 @@ export interface AccountIdentity {
 const NATIVE_REDIRECT = 'com.quang.stackflow://auth/callback';
 
 function requireClient() {
-  const client = getSupabaseClient();
+  const client = getAccountSupabaseClient();
   if (!client) throw new Error('Chưa cấu hình Supabase cho tài khoản nhóm.');
   return client;
 }

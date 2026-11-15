@@ -1,3 +1,4 @@
+import { z } from 'zod';
 import {
   CURRENT_SCHEMA_VERSION,
   MAX_TEAM_MEMBERS,
@@ -39,10 +40,18 @@ export type RawWorkspaceSnapshotInput = {
   activities: ActivityLog[];
 };
 
-/**
- * Normalizes multi-assignee IDs with seamless Schema v1 (`assigneeId`) -> v2 (`assigneeIds`) upgrade.
- * Pure, deterministic, deduplicated, optionally filtered against valid workspace member IDs, and immutable.
- */
+export const WorkspaceBoundarySchema = z.object({
+  id: z.string().min(1),
+  code: z.string().min(1),
+  name: z.string().min(1),
+  description: z.string().optional().default(''),
+  pinCode: z.string().default('GOOGLE'),
+  maxMembers: z.number().int().min(1).max(MAX_TEAM_MEMBERS).optional(),
+  schemaVersion: z.number().int().optional(),
+  createdAt: z.string(),
+  updatedAt: z.string(),
+});
+
 export function normalizeAssigneeIds(
   assigneeIds?: string[] | null,
   legacyAssigneeId?: string | null,
@@ -56,7 +65,6 @@ export function normalizeAssigneeIds(
 
   const seen = new Set<string>();
   const result: string[] = [];
-
   for (const entry of rawCandidates) {
     if (typeof entry !== 'string') continue;
     const trimmed = entry.trim();
@@ -65,42 +73,21 @@ export function normalizeAssigneeIds(
     seen.add(trimmed);
     result.push(trimmed);
   }
-
   return result;
 }
 
-/**
- * Normalizes a single SubtaskItem so all v2 fields are guaranteed clean and immutable.
- */
 export function sanitizeSubtaskItem(
   raw: LegacySubtaskInput,
   fallbackIndex: number,
   validMemberIds?: Set<string>,
 ): SubtaskItem {
-  const id =
-    typeof raw.id === 'string' && raw.id.trim().length > 0
-      ? raw.id.trim()
-      : `sub-${fallbackIndex + 1}`;
+  const id = typeof raw.id === 'string' && raw.id.trim().length > 0 ? raw.id.trim() : `sub-${fallbackIndex + 1}`;
   const title = typeof raw.title === 'string' ? raw.title.trim() : '';
   const completed = Boolean(raw.completed);
-
-  const candidateAssignee =
-    typeof raw.assigneeId === 'string' && raw.assigneeId.trim().length > 0
-      ? raw.assigneeId.trim()
-      : null;
-  const assigneeId =
-    candidateAssignee && (!validMemberIds || validMemberIds.has(candidateAssignee))
-      ? candidateAssignee
-      : null;
-
-  const completedByName =
-    typeof raw.completedByName === 'string' && raw.completedByName.trim().length > 0
-      ? raw.completedByName.trim()
-      : null;
-  const completedById =
-    typeof raw.completedById === 'string' && raw.completedById.trim().length > 0
-      ? raw.completedById.trim()
-      : null;
+  const candidate = typeof raw.assigneeId === 'string' && raw.assigneeId.trim().length > 0 ? raw.assigneeId.trim() : null;
+  const assigneeId = candidate && (!validMemberIds || validMemberIds.has(candidate)) ? candidate : null;
+  const completedByName = typeof raw.completedByName === 'string' && raw.completedByName.trim().length > 0 ? raw.completedByName.trim() : null;
+  const completedById = typeof raw.completedById === 'string' && raw.completedById.trim().length > 0 ? raw.completedById.trim() : null;
 
   return {
     id,
@@ -112,15 +99,12 @@ export function sanitizeSubtaskItem(
   };
 }
 
-/**
- * Pure DataIntegrityGuard at every persistence/network boundary (localStorage, E2EE Relay, Supabase).
- * Upgrades Schema v1 -> v2, keeps `assigneeId = assigneeIds[0] ?? null` in 2-way sync,
- * strips deleted/invalid member references, normalizes subtasks, and returns a deep immutable copy.
- */
 export function sanitizeWorkspaceSnapshot(
   raw: WorkspaceSnapshot | RawWorkspaceSnapshotInput,
 ): WorkspaceSnapshot {
   const incomingVersion = raw.schemaVersion ?? raw.workspace?.schemaVersion ?? 1;
+  const parsedWs = WorkspaceBoundarySchema.safeParse(raw.workspace);
+  const wsSource = parsedWs.success ? parsedWs.data : raw.workspace;
 
   const members: Member[] = Array.isArray(raw.members)
     ? raw.members.slice(0, MAX_TEAM_MEMBERS).map((m) => ({
@@ -135,17 +119,16 @@ export function sanitizeWorkspaceSnapshot(
     : [];
 
   const validMemberIds = new Set<string>(members.map((m) => m.id));
-
   const workspace: Workspace = {
-    id: raw.workspace.id,
-    code: raw.workspace.code,
-    name: raw.workspace.name,
-    description: raw.workspace.description ?? '',
-    pinCode: raw.workspace.pinCode,
-    maxMembers: Math.min(Math.max(raw.workspace.maxMembers ?? MAX_TEAM_MEMBERS, 1), MAX_TEAM_MEMBERS),
+    id: wsSource.id,
+    code: wsSource.code,
+    name: wsSource.name,
+    description: wsSource.description ?? '',
+    pinCode: wsSource.pinCode,
+    maxMembers: Math.min(Math.max(wsSource.maxMembers ?? MAX_TEAM_MEMBERS, 1), MAX_TEAM_MEMBERS),
     schemaVersion: CURRENT_SCHEMA_VERSION,
-    createdAt: raw.workspace.createdAt,
-    updatedAt: raw.workspace.updatedAt,
+    createdAt: wsSource.createdAt,
+    updatedAt: wsSource.updatedAt,
   };
 
   const stacks: StackGroup[] = Array.isArray(raw.stacks)
@@ -165,55 +148,30 @@ export function sanitizeWorkspaceSnapshot(
 
   const items: ChecklistItem[] = Array.isArray(raw.items)
     ? raw.items.map((item) => {
-        // If unmigrated v1/DB row had default empty array `[]` alongside a non-null legacy `assigneeId`,
-        // treat `assigneeIds` as unpopulated so v1 `assigneeId` upgrades seamlessly.
         const rawIds =
           Array.isArray(item.assigneeIds) &&
           (item.assigneeIds.length > 0 || incomingVersion >= CURRENT_SCHEMA_VERSION || !item.assigneeId)
             ? item.assigneeIds
             : undefined;
-
-        const normalizedAssignees = normalizeAssigneeIds(
-          rawIds,
-          item.assigneeId ?? null,
-          validMemberIds,
-        );
-
+        const normalizedAssignees = normalizeAssigneeIds(rawIds, item.assigneeId ?? null, validMemberIds);
         const subtasks: SubtaskItem[] = Array.isArray(item.subtasks)
-          ? item.subtasks
-              .map((sub, idx) => sanitizeSubtaskItem(sub, idx, validMemberIds))
-              .filter((sub) => sub.title.length > 0)
+          ? item.subtasks.map((sub, idx) => sanitizeSubtaskItem(sub, idx, validMemberIds)).filter((sub) => sub.title.length > 0)
           : [];
-
         const links: TaskLink[] = Array.isArray(item.links)
-          ? item.links.map((lnk) => ({
-              id: lnk.id,
-              label: lnk.label,
-              url: lnk.url,
-            }))
+          ? item.links.map((lnk) => ({ id: lnk.id, label: lnk.label, url: lnk.url }))
           : [];
-
         const completed = Boolean(item.completed || item.status === 'done');
-        const status = completed
-          ? 'done'
-          : item.status === 'doing' || item.status === 'blocked'
-            ? item.status
-            : 'todo';
+        const status = completed ? 'done' : item.status === 'doing' || item.status === 'blocked' ? item.status : 'todo';
 
         return {
           id: item.id,
-          ...(Number.isSafeInteger(item.version) && (item.version ?? 0) > 0
-            ? { version: item.version }
-            : {}),
+          ...(Number.isSafeInteger(item.version) && (item.version ?? 0) > 0 ? { version: item.version } : {}),
           workspaceId: item.workspaceId,
           stackId: item.stackId,
           title: item.title,
           notes: item.notes ?? '',
           status,
-          priority:
-            item.priority === 'low' || item.priority === 'medium' || item.priority === 'high'
-              ? item.priority
-              : 'medium',
+          priority: item.priority === 'low' || item.priority === 'medium' || item.priority === 'high' ? item.priority : 'medium',
           completed,
           assigneeId: normalizedAssignees[0] ?? null,
           assigneeIds: normalizedAssignees,
@@ -245,30 +203,12 @@ export function sanitizeWorkspaceSnapshot(
       }))
     : [];
 
-  return {
-    schemaVersion: CURRENT_SCHEMA_VERSION,
-    workspace,
-    members,
-    stacks,
-    items,
-    activities,
-  };
+  return { schemaVersion: CURRENT_SCHEMA_VERSION, workspace, members, stacks, items, activities };
 }
 
-/**
- * Pure helper checking whether `memberId` is involved in `item` — either as a primary/co-assignee
- * on the task (`assigneeIds` / `assigneeId`) OR assigned to at least one subtask (`subtask.assigneeId`).
- */
 export function isMemberInvolvedInItem(item: ChecklistItem, memberId: string): boolean {
   if (!memberId) return false;
-  if (Array.isArray(item.assigneeIds) && item.assigneeIds.includes(memberId)) {
-    return true;
-  }
-  if (item.assigneeId === memberId) {
-    return true;
-  }
-  if (Array.isArray(item.subtasks) && item.subtasks.some((sub) => sub.assigneeId === memberId)) {
-    return true;
-  }
-  return false;
+  if (Array.isArray(item.assigneeIds) && item.assigneeIds.includes(memberId)) return true;
+  if (item.assigneeId === memberId) return true;
+  return Array.isArray(item.subtasks) && item.subtasks.some((sub) => sub.assigneeId === memberId);
 }
