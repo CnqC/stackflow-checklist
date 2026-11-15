@@ -1,6 +1,6 @@
 # Sổ Cái Trạng Thái Sống Của Dự Án (`STATE.md` — Loop Engineering · Luồng B Brownfield Convergence)
 
-Last run: 2026-11-16 | Health Score: Đang hội tụ từ 0/100 -> 100/100 (Google Account + V2 App Parity)
+Last run: 2026-11-16 | Health Score: 100/100 (Google Account + V2 App Parity)
 
 > **Quy tắc sử dụng lâu dài**:
 > - Mỗi lần mở lại dự án, AI đọc file này đầu tiên để nắm mạch việc.
@@ -10,7 +10,7 @@ Last run: 2026-11-16 | Health Score: Đang hội tụ từ 0/100 -> 100/100 (Goo
 
 ## 1. High Priority (Lộ trình hội tụ Google Auth + UI Chuẩn App V2 + Build Web/PWA/APK)
 - [x] `SLICE-01` — Thiết lập nền tảng Loop-Engineering (`STATE.md`, `LOOP.md`, `gate.yaml`, `zod`, `typecheck`) & chốt các bản vá đang dở từ phiên trước về working tree sạch (`<= 10` file/commit)
-- [ ] `SLICE-02` — Dọn bỏ luồng đăng nhập PIN cũ (`PinAuthScreen`, `TeamAndCloudModal`, `syncService`, `e2eeRelaySync`, `App.tsx`) & tách nhỏ toàn bộ Domain / Component V2 (`StackGroupCard`, `TaskDetailDrawer`, `NotificationBell`, `notificationService`) dưới `250` dòng để đạt `npm run doctor` `100/100`
+- [x] `SLICE-02` — Dọn bỏ luồng đăng nhập PIN cũ (`PinAuthScreen`, `TeamAndCloudModal`, `syncService`, `e2eeRelaySync`, `App.tsx`) & tách nhỏ toàn bộ Domain / Component V2 (`StackGroupCard`, `TaskDetailDrawer`, `NotificationBell`, `notificationService`) dưới `250` dòng để đạt `npm run doctor` `100/100`
 - [ ] `SLICE-03` — Thiết kế & kiểm thử PGlite migration SQL `202611160001_v2_team_invites_and_profiles.sql` (Mời đa kênh Email + Link/Mã mời nhanh Zalo/Discord bật/tắt/đổi mã, danh sách chờ & thu hồi lời mời, tùy chỉnh vai trò & màu Avatar thành viên chuẩn V2, RLS 100%)
 - [ ] `SLICE-04` — Xây dựng tầng Domain `Zod` Schemas (`accountSchemas.ts`) & Repository tách gọn (`accountProjectRepository.ts` + `accountTeamInviteRepository.ts` + Realtime Presence đếm Online + `accountV2Snapshot.ts` đồng bộ màu Avatar/nhật ký)
 - [ ] `SLICE-05` — Thiết kế màn hình Đăng nhập Google (`AccountLoginScreen`) có decor đồng bộ 100% style/theme App V2 + tự bắt Link mời `?join=...` & Sảnh Dự Án (`ProjectDashboardScreen`) kèm thanh nhập Mã mời nhanh & Tạo dự án chọn vai trò/màu Avatar
