@@ -71,18 +71,20 @@ export function AccountLogin({ error, onSettings }: Props) {
       />
 
       {/* Top Header matching 01_desktop_pin_login.png */}
-      <header className="relative z-10 mx-auto flex w-full max-w-6xl items-center justify-between gap-3 px-4 py-5 sm:px-8">
-        <div className="flex items-center gap-2.5">
-          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-indigo-500 to-sky-500 text-white shadow-lg shadow-indigo-500/25">
+      <header className="relative z-10 mx-auto flex w-full max-w-6xl items-center justify-between gap-2 px-4 py-4 sm:gap-3 sm:px-8 sm:py-5">
+        <div className="flex min-w-0 items-center gap-2">
+          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-indigo-500 to-sky-500 text-white shadow-lg shadow-indigo-500/25 sm:h-10 sm:w-10">
             <Layers className="h-5 w-5" />
           </div>
-          <span className="text-lg font-extrabold tracking-tight text-foreground">StackFlow</span>
-          <span className="rounded-full border border-indigo-500/30 bg-indigo-500/15 px-2.5 py-0.5 text-[11px] font-semibold text-indigo-300">
+          <span className="text-base font-extrabold tracking-tight text-foreground sm:text-lg">
+            StackFlow
+          </span>
+          <span className="shrink-0 rounded-full border border-indigo-500/30 bg-indigo-500/15 px-2 py-0.5 text-[10px] font-semibold text-indigo-300 sm:px-2.5 sm:text-[11px]">
             Web &amp; App
           </span>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex shrink-0 items-center gap-2">
           <span className="hidden items-center gap-1.5 rounded-full border border-slate-800 bg-slate-900/90 px-3 py-1.5 text-xs text-slate-300 sm:inline-flex">
             <Cloud className="h-3.5 w-3.5 text-emerald-400" />
             Đồng bộ: Google Cloud
@@ -91,28 +93,28 @@ export function AccountLogin({ error, onSettings }: Props) {
             <button
               type="button"
               onClick={onSettings}
-              className="inline-flex items-center gap-1.5 rounded-full border border-slate-800 bg-slate-900/90 px-3.5 py-1.5 text-xs font-semibold text-slate-200 transition hover:border-indigo-500/50 hover:bg-slate-800 cursor-pointer"
+              className="inline-flex items-center gap-1.5 rounded-full border border-slate-800 bg-slate-900/90 px-2.5 py-1.5 text-[11px] font-semibold text-slate-200 transition hover:border-indigo-500/50 hover:bg-slate-800 sm:px-3.5 sm:text-xs cursor-pointer"
             >
-              <Palette className="h-3.5 w-3.5 text-indigo-400" />
-              Giao diện &amp; Cài đặt
+              <Palette className="h-3.5 w-3.5 shrink-0 text-indigo-400" />
+              <span>Giao diện &amp; Cài đặt</span>
             </button>
           )}
         </div>
       </header>
 
       {/* Main Content Grid */}
-      <div className="relative z-10 mx-auto grid w-full max-w-6xl items-center gap-8 px-4 py-6 sm:px-8 lg:grid-cols-[1.15fr_0.85fr] lg:gap-12">
-        <div className="order-2 lg:order-1">
+      <div className="relative z-10 mx-auto grid w-full max-w-6xl items-center gap-8 px-4 py-4 sm:px-8 sm:py-6 lg:grid-cols-[1.15fr_0.85fr] lg:gap-12">
+        <div className="order-2 min-w-0 lg:order-1">
           <LoginDecorShowcase />
         </div>
 
         <section
           aria-label="Đăng nhập dự án bằng Google"
-          className="order-1 w-full rounded-3xl border border-slate-800 bg-slate-900/90 p-6 shadow-2xl backdrop-blur sm:p-8 lg:order-2"
+          className="order-1 min-w-0 w-full rounded-3xl border border-slate-800 bg-slate-900/90 p-5 shadow-2xl backdrop-blur sm:p-8 lg:order-2"
         >
-          <div className="flex items-center justify-between">
+          <div className="flex flex-wrap items-center justify-between gap-2">
             <span className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-500/10 px-2.5 py-1 text-[11px] font-semibold text-emerald-300">
-              <ShieldCheck className="h-3.5 w-3.5" />
+              <ShieldCheck className="h-3.5 w-3.5 shrink-0" />
               Bảo mật tài khoản Google
             </span>
             <span className="text-[11px] text-slate-400">Tối đa 20 người/dự án</span>

@@ -9,10 +9,12 @@ const SAMPLE_AVATARS = [
 
 export function LoginDecorShowcase() {
   return (
-    <div className="space-y-4">
-      <div className="inline-flex items-center gap-2 rounded-full border border-indigo-500/30 bg-indigo-500/10 px-3.5 py-1.5 text-xs font-semibold text-indigo-300">
-        <Sparkles className="h-3.5 w-3.5" />
-        Phiên bản Hợp nhất Google Cloud · Web · Desktop PWA · Android APK
+    <div className="min-w-0 space-y-4">
+      <div className="inline-flex max-w-full items-center gap-2 rounded-full border border-indigo-500/30 bg-indigo-500/10 px-3 py-1.5 text-[11px] font-semibold text-indigo-300 sm:px-3.5 sm:text-xs">
+        <Sparkles className="h-3.5 w-3.5 shrink-0" />
+        <span className="truncate">
+          Phiên bản Hợp nhất Google Cloud · Web · Desktop PWA · Android APK
+        </span>
       </div>
 
       <h2 className="text-2xl font-extrabold tracking-tight text-foreground sm:text-4xl">

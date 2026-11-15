@@ -22,6 +22,11 @@ allprojects {
         google()
         mavenCentral()
     }
+    plugins.withType(JavaBasePlugin) {
+        project.extensions.getByType(JavaPluginExtension).toolchain {
+            languageVersion = JavaLanguageVersion.of(21)
+        }
+    }
 }
 
 subprojects {
