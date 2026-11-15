@@ -16,7 +16,7 @@ Last run: 2026-11-16 | Health Score: 100/100 (Google Account + V2 App Parity)
 - [x] `SLICE-05` — Thiết kế màn hình Đăng nhập Google (`AccountLoginScreen`) có decor đồng bộ 100% style/theme App V2 + tự bắt Link mời `?join=...` & Sảnh Dự Án (`ProjectDashboardScreen`) kèm thanh nhập Mã mời nhanh & Tạo dự án chọn vai trò/màu Avatar
 - [x] `SLICE-06` — Xây dựng Modal Quản Lý Nhóm & Cài Đặt App 3 Tab chuẩn thiết kế App V2 (`ProjectTeamModal`: Mời Email + Link/Mã mời nhanh 1 chạm sao chép tin nhắn Zalo, Thành viên/Hồ sơ Online & màu Avatar, Cài đặt PWA Desktop/Android APK/iOS)
 - [x] `SLICE-07` — Hợp nhất khung Workspace chuẩn 100% giao diện Bản App V2 (`WorkspaceLeftSidebar`, `WorkspaceTopToolbar`, `WorkspaceMobileBars`, tích hợp Chuông Thông Báo đa nền tảng Web/PWA/Android APK + `AppSettingsModal`)
-- [ ] `SLICE-08` — Reset sạch & áp dụng schema mới lên Supabase tài khoản (`xwzwsysekkizxmmjjjvn`), nghiệm thu toàn diện (`doctor 100/100`, `typecheck`, `test`, `test:db`, `build`), xuất gói Web/PWA Desktop + build `StackFlow-Checklist.apk` & chụp ảnh kiểm chứng thị giác 1:1
+- [x] `SLICE-08` — Reset sạch & áp dụng schema mới lên Supabase tài khoản (`xwzwsysekkizxmmjjjvn`), nghiệm thu toàn diện (`doctor 100/100`, `typecheck`, `test`, `test:db`, `build`), xuất gói Web/PWA Desktop + build `StackFlow-Checklist.apk` & chụp ảnh kiểm chứng thị giác 1:1
 
 ---
 
@@ -33,4 +33,5 @@ Last run: 2026-11-16 | Health Score: 100/100 (Google Account + V2 App Parity)
 ---
 
 ## 4. Run Log (Nhật ký các đợt bảo trì / nâng cấp)
+- `2026-11-16` | Hoàn tất toàn bộ 8 lát cắt hội tụ (`SLICE-01` -> `SLICE-08`): gỡ bỏ hoàn toàn luồng PIN cũ, giữ nguyên 100% UI/UX & Theme Engine của Bản App V2, ghép đăng nhập Google OAuth + mời đa kênh (Link/Mã mời nhanh Zalo `?join=SF-XXXXXX` + Email Google), áp dụng migration `202611160001` & reset sạch dự án trên Supabase tài khoản (`xwzwsysekkizxmmjjjvn`), đạt `npm run doctor` `100/100` và đóng gói Web/PWA Desktop + `StackFlow-Checklist.apk`.
 - `2026-11-16` | Khảo sát L1 (`loop-triage`): phát hiện 23 file dở trên nhánh `v2-google-auth` và 14 file > 250 dòng khiến `doctor` đạt `0/100`; đã chốt 3 quyết định sản phẩm cùng Cao Nhật Quang và lập lộ trình 8 lát cắt hội tụ.

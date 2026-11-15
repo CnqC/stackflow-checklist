@@ -1,9 +1,9 @@
 {
-  "title": "StackFlow 1.2.0: đăng nhập Google",
+  "title": "StackFlow 1.2.0: Hợp nhất Giao diện App V2 & Đăng nhập Google Cloud",
   "changes": [
-    "Đăng nhập bằng tài khoản Google để xem các dự án được mời tham gia.",
-    "Giữ giao diện Stack, đầu việc, phần việc nhỏ và nhật ký của bản V2 trên backend tài khoản.",
-    "Quyền thành viên và người được giao việc được kiểm tra ở database tài khoản.",
-    "Kiểm tra bản cập nhật mới trên Web, PWA và Android trong Cài đặt."
+    "Thay thế hoàn toàn mã PIN phòng bằng đăng nhập Google OAuth 1 chạm kèm màn hình chào mừng chuẩn phong cách App V2.",
+    "Nâng cấp mời thành viên đa kênh: Link & Mã mời nhanh SF-XXXXXX cho Zalo/Discord (tự nhận diện ?join= khi đăng nhập) kết hợp mời đích danh qua Gmail.",
+    "Giữ trọn vẹn 100% trải nghiệm App V2: Stack tuần tự, phần việc nhỏ, đính kèm Link, 9 giao diện màu, đếm Online trực tiếp và Chuông báo việc đa nền tảng.",
+    "Hỗ trợ cài đặt 1 chạm cho Web, Desktop PWA (Windows/Mac) và gói cài đặt gốc StackFlow-Checklist.apk trên Android."
   ]
 }
