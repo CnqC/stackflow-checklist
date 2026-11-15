@@ -5,13 +5,15 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "typecheck": "tsc -b",
     "build": "tsc -b && vite build",
     "lint": "oxlint",
     "preview": "vite preview",
     "test": "vitest run",
     "test:db": "node scripts/test-v3-schema.mjs",
     "test:backup": "node --test scripts/backup-crypto.test.mjs",
-    "cap:sync": "npm run build && npx cap sync android"
+    "cap:sync": "npm run build && npx cap sync android",
+    "doctor": "node scripts/loop-doctor.mjs"
   },
   "dependencies": {
     "@capacitor/android": "^8.6.0",
@@ -24,7 +26,8 @@
     "lucide-react": "^1.71.0",
     "mqtt": "^5.16.1",
     "react": "^19.3.1",
-    "react-dom": "^19.3.1"
+    "react-dom": "^19.3.1",
+    "zod": "^4.6.7"
   },
   "devDependencies": {
     "@capacitor/cli": "^8.6.0",
