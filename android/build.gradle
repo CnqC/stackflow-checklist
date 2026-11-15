@@ -32,7 +32,10 @@ allprojects {
 subprojects {
     afterEvaluate { project ->
         if (project.hasProperty('android')) {
-            project.android.buildToolsVersion = '36.0.0'
+            def sdkDir = System.getenv('ANDROID_HOME') ?: System.getenv('ANDROID_SDK_ROOT')
+            if (sdkDir && new File(sdkDir, 'build-tools/36.0.0').exists() && !new File(sdkDir, 'build-tools/35.0.0').exists()) {
+                project.android.buildToolsVersion = '36.0.0'
+            }
         }
     }
 }
