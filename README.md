@@ -20,14 +20,14 @@ npm run lint
 npm run build
 ```
 
-Sao chép `.env.example` thành `.env` và điền URL cùng publishable key của **Supabase project mới**. Không đặt service role key hoặc mật khẩu database trong frontend. `VITE_ACCOUNT_V3=true` mở giao diện mới. Khi chưa bật, ứng dụng dùng giao diện PIN cũ để tránh cutover khi cloud chưa sẵn sàng.
+Sao chép `.env.example` thành `.env` và điền URL cùng publishable key của **Supabase project tài khoản**. Không đặt service role key hoặc mật khẩu database trong frontend. Bản 1.2.0 mở đăng nhập Google và giao diện công việc V2 đã ghép với backend tài khoản. Build từ chối URL của database PIN cũ.
 
 ## Thiết lập cloud và cutover
 
 Làm theo [runbook v3](specs/003-google-account-v3/cutover.md). Migration v3 là [202611130001_fresh_account_schema.sql](supabase/migrations/202611130001_fresh_account_schema.sql), chỉ dành cho database trống. Các migration và schema PIN cũ nằm trong `supabase/legacy-migrations` và `supabase/legacy-schema.sql` để tham khảo; không áp dụng chúng lên project v3.
 
-Web/PWA phát hành qua GitHub Pages theo `.github/workflows/deploy.yml`. Android dùng `npm run cap:sync`; OAuth Google cần redirect URL `com.quang.stackflow://auth/callback` trong Supabase. GitHub Actions nhận `VITE_ACCOUNT_V3` từ repository variable sau khi kiểm tra staging. Quy trình cập nhật ứng dụng ở [UPDATES.md](UPDATES.md).
+Web/PWA phát hành qua GitHub Pages theo `.github/workflows/deploy.yml`. Android dùng `npm run cap:sync`; OAuth Google cần redirect URL `com.quang.stackflow://auth/callback` trong Supabase. Trước khi đẩy bản 1.2.0, repository variables `VITE_SUPABASE_URL` và `VITE_SUPABASE_ANON_KEY` phải trỏ tới project tài khoản; hiện bản công khai vẫn dùng project PIN. Quy trình cập nhật ứng dụng ở [UPDATES.md](UPDATES.md).
 
 ## Trạng thái
 
-Schema và giao diện v3 đã được kiểm thử cục bộ. Supabase project v3 (`xwzwsysekkizxmmjjjvn`) đã nhận migrations `001`–`009` và Google provider đã bật. Chưa chuyển production vì bản v3 còn phải đạt [đối chiếu đầy đủ tính năng bản PIN](specs/003-google-account-v3/parity.md), email admin chưa được cung cấp, backup vận hành và kiểm thử thiết bị thật chưa hoàn thành. Xem [trạng thái triển khai](specs/003-google-account-v3/tasks.md).
+Đọc [bàn giao tổng thể](PROJECT_HANDOFF.md) trước khi tiếp tục. Tài liệu này phân biệt bản PIN đang phát hành, luồng Google trên local, kiến trúc tài khoản, các bản build và việc còn dở. Database tài khoản đã áp dụng migrations `001`–`011` và đã xác minh grant admin; Web công khai chưa chuyển sang luồng Google theo ghi nhận vận hành.

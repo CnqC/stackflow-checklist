@@ -2,6 +2,7 @@ import tailwindcss from '@tailwindcss/vite';
 import react from '@vitejs/plugin-react';
 import { VitePWA } from 'vite-plugin-pwa';
 import { defineConfig } from 'vitest/config';
+import { loadEnv } from 'vite';
 import { execFileSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 
@@ -22,6 +23,21 @@ export default defineConfig({
         this.emitFile({ type: 'asset', fileName: 'version.json', source: JSON.stringify({
           version: packageVersion, buildId, ...releaseNotes,
         }) });
+      },
+    },
+    {
+      name: 'stackflow-account-build-config',
+      apply: 'build',
+      config(_config, { mode }) {
+        const env = loadEnv(mode, process.cwd(), 'VITE_');
+        let accountUrlValid = false;
+        try {
+          const url = new URL(env.VITE_SUPABASE_URL ?? '');
+          accountUrlValid = url.protocol === 'https:' && url.hostname === 'xwzwsysekkizxmmjjjvn.supabase.co';
+        } catch { /* Invalid URL fails below. */ }
+        if (!accountUrlValid || !env.VITE_SUPABASE_ANON_KEY?.trim()) {
+          throw new Error('Bản tài khoản 1.2.0 cần VITE_SUPABASE_URL và publishable key của Supabase tài khoản; không dùng database PIN.');
+        }
       },
     },
     react(),

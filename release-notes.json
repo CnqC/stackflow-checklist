@@ -1,8 +1,9 @@
 {
-  "title": "Cập nhật ứng dụng",
+  "title": "StackFlow 1.2.0: đăng nhập Google",
   "changes": [
-    "Kiểm tra phiên bản mới trong Cài đặt và nhận nhắc khi có bản cập nhật.",
-    "Bản cài Windows và Web có nút tải lại sau khi phiên bản mới sẵn sàng.",
-    "Android APK có đường dẫn tải bản phát hành mới và hướng dẫn cài đè."
+    "Đăng nhập bằng tài khoản Google để xem các dự án được mời tham gia.",
+    "Giữ giao diện Stack, đầu việc, phần việc nhỏ và nhật ký của bản V2 trên backend tài khoản.",
+    "Quyền thành viên và người được giao việc được kiểm tra ở database tài khoản.",
+    "Kiểm tra bản cập nhật mới trên Web, PWA và Android trong Cài đặt."
   ]
 }
