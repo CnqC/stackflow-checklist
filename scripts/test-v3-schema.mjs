@@ -8,6 +8,8 @@ const ids = {
   member: '00000000-0000-4000-8000-000000000002',
   outsider: '00000000-0000-4000-8000-000000000003',
   admin: '00000000-0000-4000-8000-000000000004',
+  linkJoiner: '00000000-0000-4000-8000-000000000005',
+  decliner: '00000000-0000-4000-8000-000000000006',
 };
 
 async function asUser(userId, action) {
@@ -69,6 +71,8 @@ try {
   await db.exec(stackCreationPriority);
   const v2MemberCollaboration = readFileSync(new URL('../supabase/migrations/202611130011_v2_member_collaboration.sql', import.meta.url), 'utf8');
   await db.exec(v2MemberCollaboration);
+  const v2TeamInvitesAndProfiles = readFileSync(new URL('../supabase/migrations/202611160001_v2_team_invites_and_profiles.sql', import.meta.url), 'utf8');
+  await db.exec(v2TeamInvitesAndProfiles);
 
   for (const [name, id] of Object.entries(ids)) {
     await db.query(
@@ -310,7 +314,118 @@ try {
     "select public.create_stack($1,'Invalid','','red',false,'high')", [projectId],
   )));
 
-  console.log('v3 schema: RLS, invitations, completion, membership, admin access and version conflict passed');
+  // V2 Multi-Channel Invites, Quick Join Link & Member Profile tests (member is current owner after transfer)
+  const linkInfo = (await asUser(ids.member, () => db.query(
+    'select * from public.get_project_join_link($1)', [projectId],
+  ))).rows[0];
+  assert.match(linkInfo.join_code, /^SF-[A-Z0-9]{6}$/);
+  assert.equal(linkInfo.enabled, true);
+
+  await expectDenied(() => asUser(ids.outsider, () => db.query(
+    'select * from public.get_project_join_link($1)', [projectId],
+  )));
+  await expectDenied(() => asUser(ids.admin, () => db.query(
+    'select public.join_project_by_code($1)', [linkInfo.join_code],
+  )));
+
+  const preview = (await asUser(ids.linkJoiner, () => db.query(
+    'select * from public.preview_project_by_join_code($1)', [linkInfo.join_code.toLowerCase()],
+  ))).rows[0];
+  assert.equal(preview.project_id, projectId);
+  assert.equal(preview.already_member, false);
+
+  const joinedProjectId = (await asUser(ids.linkJoiner, () => db.query(
+    "select public.join_project_by_code($1, 'UI/UX Designer') as id", [linkInfo.join_code],
+  ))).rows[0].id;
+  assert.equal(joinedProjectId, projectId);
+
+  const joinedMember = (await asUser(ids.linkJoiner, () => db.query(
+    'select job_title, avatar_color from public.project_members where project_id=$1 and user_id=$2',
+    [projectId, ids.linkJoiner],
+  ))).rows[0];
+  assert.equal(joinedMember.job_title, 'UI/UX Designer');
+  assert.match(joinedMember.avatar_color, /^#[0-9a-fA-F]{6}$/);
+
+  await asUser(ids.linkJoiner, () => db.query(
+    "select public.update_my_project_profile($1, 'Linh Design', 'Lead Designer', '#ec4899')",
+    [projectId],
+  ));
+  const updatedProfile = (await asUser(ids.linkJoiner, () => db.query(
+    'select display_name, job_title, avatar_color from public.project_members where project_id=$1 and user_id=$2',
+    [projectId, ids.linkJoiner],
+  ))).rows[0];
+  assert.deepEqual(updatedProfile, {
+    display_name: 'Linh Design',
+    job_title: 'Lead Designer',
+    avatar_color: '#ec4899',
+  });
+
+  // Disable join link -> outsider cannot join; regenerate -> new code works when enabled
+  await asUser(ids.member, () => db.query(
+    "select * from public.configure_project_join_link($1, false, false, 'QA Tester', 7)",
+    [projectId],
+  ));
+  await expectDenied(() => asUser(ids.outsider, () => db.query(
+    'select public.join_project_by_code($1)', [linkInfo.join_code],
+  )));
+  const rotatedLink = (await asUser(ids.member, () => db.query(
+    'select * from public.configure_project_join_link($1, true, true, null, 0)',
+    [projectId],
+  ))).rows[0];
+  assert.notEqual(rotatedLink.join_code, linkInfo.join_code);
+  assert.equal(rotatedLink.default_job_title, 'QA Tester');
+  assert.equal(rotatedLink.expires_at, null);
+
+  // Paused member must NOT bypass deactivation via join_code
+  const linkJoinerMemberId = (await asUser(ids.member, () => db.query(
+    'select id from public.project_members where project_id=$1 and user_id=$2',
+    [projectId, ids.linkJoiner],
+  ))).rows[0].id;
+  await asUser(ids.member, () => db.query(
+    'select public.set_project_member_active($1, $2, false)',
+    [projectId, linkJoinerMemberId],
+  ));
+  await expectDenied(() => asUser(ids.linkJoiner, () => db.query(
+    'select public.join_project_by_code($1)', [rotatedLink.join_code],
+  )));
+
+  // Pending email invite list, revoke & decline
+  const outsiderInviteId = (await asUser(ids.member, () => db.query(
+    "select public.invite_project_member($1, 'outsider@example.com', 'Backend') as id",
+    [projectId],
+  ))).rows[0].id;
+  const declinerInviteId = (await asUser(ids.member, () => db.query(
+    "select public.invite_project_member($1, 'decliner@example.com', 'Frontend') as id",
+    [projectId],
+  ))).rows[0].id;
+  const pendingList = (await asUser(ids.member, () => db.query(
+    'select * from public.list_project_pending_invitations($1)', [projectId],
+  ))).rows;
+  assert.equal(pendingList.length, 2);
+  await asUser(ids.member, () => db.query(
+    'select public.revoke_project_invitation($1)', [outsiderInviteId],
+  ));
+  await expectDenied(() => asUser(ids.outsider, () => db.query(
+    'select public.accept_project_invitation($1)', [outsiderInviteId],
+  )));
+  await asUser(ids.decliner, () => db.query(
+    'select public.decline_project_invitation($1)', [declinerInviteId],
+  ));
+  assert.equal((await asUser(ids.member, () => db.query(
+    'select count(*)::int as n from public.list_project_pending_invitations($1)', [projectId],
+  ))).rows[0].n, 0);
+
+  // Owner updates another member's role & join_member activity was logged
+  await asUser(ids.member, () => db.query(
+    "select public.update_project_member_role($1, $2, 'Senior Architect')",
+    [projectId, ownerMember.rows[0].id],
+  ));
+  assert.ok((await asUser(ids.member, () => db.query(
+    "select count(*)::int as n from public.activity_logs where project_id=$1 and action_type='join_member'",
+    [projectId],
+  ))).rows[0].n >= 2, 'join_member activity must be recorded');
+
+  console.log('v3 schema: RLS, multi-channel invitations, join codes, profiles, completion, membership, admin access and version conflict passed');
 } finally {
   await db.close();
 }
