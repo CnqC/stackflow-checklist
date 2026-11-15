@@ -3,6 +3,10 @@ import type {
   ProjectData,
   ProjectTable,
 } from '../../core/domain/accountProject';
+import {
+  CreateProjectInputSchema,
+  InviteMemberEmailSchema,
+} from '../../core/domain/accountSchemas';
 import { accountAuthService } from '../auth/accountAuthService';
 import {
   accountClient,
@@ -96,22 +100,24 @@ export const accountProjectRepository = {
     jobTitle?: string;
     avatarColor?: string;
   }): Promise<string> {
+    const parsed = CreateProjectInputSchema.parse(input);
     const payload: Record<string, unknown> = {
-      p_code: input.code,
-      p_name: input.name,
-      p_description: input.description,
-      p_owner_email: input.ownerEmail ?? null,
+      p_code: parsed.code,
+      p_name: parsed.name,
+      p_description: parsed.description,
+      p_owner_email: parsed.ownerEmail ?? null,
     };
-    if (input.jobTitle !== undefined) payload.p_job_title = input.jobTitle;
-    if (input.avatarColor !== undefined) payload.p_avatar_color = input.avatarColor;
+    if (parsed.jobTitle !== undefined) payload.p_job_title = parsed.jobTitle;
+    if (parsed.avatarColor !== undefined) payload.p_avatar_color = parsed.avatarColor;
     const { data, error } = await accountClient().rpc('create_project', payload);
     checkDbError(error);
     return data as string;
   },
 
   async invite(projectId: string, email: string, jobTitle?: string): Promise<void> {
-    const payload: Record<string, unknown> = { p_project_id: projectId, p_email: email };
-    if (jobTitle !== undefined) payload.p_job_title = jobTitle;
+    const parsed = InviteMemberEmailSchema.parse({ projectId, email, jobTitle });
+    const payload: Record<string, unknown> = { p_project_id: parsed.projectId, p_email: parsed.email };
+    if (parsed.jobTitle !== undefined) payload.p_job_title = parsed.jobTitle;
     const { error } = await accountClient().rpc('invite_project_member', payload);
     checkDbError(error);
   },
