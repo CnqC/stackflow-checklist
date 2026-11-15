@@ -7,9 +7,12 @@ type V2ItemPatch = Partial<Pick<ChecklistItem,
   'dueDate' | 'subtasks' | 'links' | 'stackId'>>;
 
 /** Translate V2 drawer edits into the account repository's versioned writes. */
-export async function saveV2Item(data: ProjectData, itemId: string, patch: V2ItemPatch): Promise<void> {
+export async function saveV2Item(data: ProjectData, itemId: string, patch: V2ItemPatch, expectedVersion?: number): Promise<number> {
   const task = data.tasks.find((entry) => entry.id === itemId);
   if (!task) throw new Error('Đầu việc không còn tồn tại.');
+  if (expectedVersion !== undefined && task.version !== expectedVersion) {
+    throw new Error('Đầu việc đã được cập nhật ở nơi khác. Hãy đóng và mở lại để xem bản mới.');
+  }
   if (patch.links?.some((link) => {
     const saved = data.links.find((entry) => entry.id === link.id && entry.task_id === task.id);
     return saved && (saved.label !== link.label || saved.url !== link.url);
@@ -31,7 +34,7 @@ export async function saveV2Item(data: ProjectData, itemId: string, patch: V2Ite
     const nextIds = patch.assigneeIds ?? (patch.assigneeId ? [patch.assigneeId] : []);
     const previousIds = data.assignees.filter((entry) => entry.task_id === task.id).map((entry) => entry.member_id);
     if (nextIds.length !== previousIds.length || nextIds.some((id) => !previousIds.includes(id))) {
-      await accountProjectRepository.setTaskAssignees(task.id, taskVersion, nextIds);
+      taskVersion = await accountProjectRepository.setTaskAssignees(task.id, taskVersion, nextIds);
     }
   }
 
@@ -45,7 +48,7 @@ export async function saveV2Item(data: ProjectData, itemId: string, patch: V2Ite
       const saved = previous.find((entry) => entry.id === subtask.id);
       if (!saved) {
         await accountProjectRepository.addSubtask({
-          projectId: task.project_id, taskId: task.id,
+          id: subtask.id, projectId: task.project_id, taskId: task.id,
           title: subtask.title, assigneeId: subtask.assigneeId ?? null,
         });
       } else if (saved.title !== subtask.title || saved.assignee_member_id !== (subtask.assigneeId ?? null)) {
@@ -64,7 +67,8 @@ export async function saveV2Item(data: ProjectData, itemId: string, patch: V2Ite
     }
     for (const link of patch.links) {
       const saved = previous.find((entry) => entry.id === link.id);
-      if (!saved) await accountProjectRepository.addTaskLink(task.project_id, task.id, link.label, link.url);
+      if (!saved) await accountProjectRepository.addTaskLink(task.project_id, task.id, link.label, link.url, link.id);
     }
   }
+  return taskVersion;
 }

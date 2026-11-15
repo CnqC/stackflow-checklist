@@ -569,11 +569,21 @@ export function ProjectWorkspace({ projectId, identity, onBack, onSettings }: Pr
       {stacks.length === 0 && <div className="rounded-2xl border border-dashed border-slate-700 p-8 text-center text-sm text-slate-400">Chưa có giai đoạn nào. {actor ? 'Hãy thêm giai đoạn đầu tiên.' : 'Chủ dự án sẽ thêm công việc sau.'}</div>}
     </div>
     {v2Actor && <TaskDetailDrawer item={selectedV2Item} stacks={v2Snapshot.stacks} members={v2Snapshot.members} currentMember={v2Actor} onClose={() => setSelectedTaskId(null)}
-      onSaveItem={(id, patch) => mutateForV2(() => saveV2Item(data, id, patch))}
+      onSaveItem={async (id, patch, expectedVersion) => {
+        let savedVersion: number | undefined;
+        await mutateForV2(async () => {
+          const latest = await accountProjectRepository.loadProject(projectId);
+          savedVersion = await saveV2Item(latest, id, patch, expectedVersion);
+        });
+        return savedVersion;
+      }}
       onToggleSubtask={async (itemId, subtaskId) => {
-        const subtask = data.subtasks.find((entry) => entry.id === subtaskId && entry.task_id === itemId);
-        if (!subtask) throw new Error('Phần việc không còn tồn tại.');
-        await mutateForV2(() => accountProjectRepository.updateSubtask(subtask.id, subtask.version, { completed: !subtask.completed }));
+        await mutateForV2(async () => {
+          const latest = await accountProjectRepository.loadProject(projectId);
+          const subtask = latest.subtasks.find((entry) => entry.id === subtaskId && entry.task_id === itemId);
+          if (!subtask) throw new Error('Phần việc không còn tồn tại.');
+          await accountProjectRepository.updateSubtask(subtask.id, subtask.version, { completed: !subtask.completed });
+        });
         const updated = await accountProjectRepository.loadProject(projectId);
         return toV2WorkspaceSnapshot(updated).items.find((item) => item.id === itemId)?.subtasks ?? [];
       }}

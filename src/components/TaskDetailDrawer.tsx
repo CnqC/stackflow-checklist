@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   ArrowDown,
   ArrowUp,
@@ -48,7 +48,8 @@ interface TaskDetailDrawerProps {
         | 'stackId'
       >
     >,
-  ) => Promise<void>;
+    expectedVersion?: number,
+  ) => Promise<number | void>;
   onToggleSubtask: (itemId: string, subtaskId: string) => Promise<SubtaskItem[]>;
   onDeleteItem: (itemId: string) => Promise<void>;
   onMoveItem: (itemId: string, direction: 'up' | 'down') => Promise<void>;
@@ -82,6 +83,12 @@ export const TaskDetailDrawer: React.FC<TaskDetailDrawerProps> = ({
   const [saving, setSaving] = useState(false);
   const [togglingSubtaskId, setTogglingSubtaskId] = useState<string | null>(null);
   const [saveError, setSaveError] = useState<string | null>(null);
+  const saveStateRef = useRef<{
+    itemId: string | null;
+    version: number | undefined;
+    queue: Promise<unknown>;
+    failed: boolean;
+  }>({ itemId: null, version: undefined, queue: Promise.resolve(), failed: false });
 
   const activeItemId = item?.id ?? null;
 
@@ -102,6 +109,7 @@ export const TaskDetailDrawer: React.FC<TaskDetailDrawerProps> = ({
     setDueDate(item.dueDate ?? '');
     setSubtasks(item.subtasks);
     setLinks(item.links);
+    saveStateRef.current = { itemId: item.id, version: item.version, queue: Promise.resolve(), failed: false };
     setNewSubtask('');
     setNewSubtaskAssigneeId('');
     setSaveError(null);
@@ -115,23 +123,52 @@ export const TaskDetailDrawer: React.FC<TaskDetailDrawerProps> = ({
   const memberMap = new Map(members.map((m) => [m.id, m]));
   const canToggleTaskCompletion = Boolean(currentMember && canCompleteTask(item, currentMember.id));
 
+  const enqueueWrite = <T,>(write: (saveState: typeof saveStateRef.current) => Promise<T>): Promise<T> => {
+    const itemId = item.id;
+    const saveState = saveStateRef.current;
+    const operation = saveState.queue.then(async () => {
+      if (saveState.failed || saveState.itemId !== itemId) {
+        throw new Error('Lần lưu trước chưa thành công. Hãy đóng và mở lại đầu việc trước khi sửa tiếp.');
+      }
+      const result = await write(saveState);
+      if (saveStateRef.current === saveState) {
+        setSaveError(null);
+      }
+      return result;
+    }).catch((error: unknown) => {
+      if (saveStateRef.current === saveState) {
+        saveState.failed = true;
+        setSaveError(error instanceof Error ? error.message : 'Không thể lưu thay đổi.');
+      }
+      throw error;
+    });
+    saveState.queue = operation;
+    return operation;
+  };
+
+  const saveDraftPatch = (patch: Parameters<typeof onSaveItem>[1]): Promise<void> =>
+    enqueueWrite(async (saveState) => {
+      const updatedVersion = await onSaveItem(item.id, patch, saveState.version);
+      if (typeof updatedVersion === 'number') saveState.version = updatedVersion;
+    });
+
   const handleToggleAssigneePill = (memberId: string) => {
     const next = assigneeIds.includes(memberId)
       ? assigneeIds.filter((id) => id !== memberId)
       : [...assigneeIds, memberId];
     setAssigneeIds(next);
-    void onSaveItem(item.id, {
+    void saveDraftPatch({
       assigneeIds: next,
       assigneeId: next[0] ?? null,
-    });
+    }).catch(() => undefined);
   };
 
   const handleClearAssignees = () => {
     setAssigneeIds([]);
-    void onSaveItem(item.id, {
+    void saveDraftPatch({
       assigneeIds: [],
       assigneeId: null,
-    });
+    }).catch(() => undefined);
   };
 
   const handleSave = async () => {
@@ -139,7 +176,7 @@ export const TaskDetailDrawer: React.FC<TaskDetailDrawerProps> = ({
     setSaving(true);
     setSaveError(null);
     try {
-      await onSaveItem(item.id, {
+      await saveDraftPatch({
         title: title.trim(),
         notes,
         status,
@@ -148,7 +185,6 @@ export const TaskDetailDrawer: React.FC<TaskDetailDrawerProps> = ({
         assigneeId: assigneeIds[0] ?? null,
         stackId,
         dueDate: dueDate || null,
-        links,
       });
       onClose();
     } catch (error) {
@@ -175,7 +211,7 @@ export const TaskDetailDrawer: React.FC<TaskDetailDrawerProps> = ({
     setSubtasks(next);
     setNewSubtask('');
     setNewSubtaskAssigneeId('');
-    void onSaveItem(item.id, { subtasks: next });
+    void saveDraftPatch({ subtasks: next }).catch(() => undefined);
   };
 
   const handleToggleSubtask = async (subId: string) => {
@@ -184,7 +220,11 @@ export const TaskDetailDrawer: React.FC<TaskDetailDrawerProps> = ({
     setSaveError(null);
     setTogglingSubtaskId(subId);
     try {
-      setSubtasks(await onToggleSubtask(item.id, subId));
+      const updated = await enqueueWrite(() => onToggleSubtask(item.id, subId));
+      const toggled = updated.find((subtask) => subtask.id === subId);
+      if (toggled) {
+        setSubtasks((current) => current.map((subtask) => subtask.id === subId ? toggled : subtask));
+      }
     } catch (error) {
       setSaveError(error instanceof Error ? error.message : 'Không thể cập nhật phần việc nhỏ.');
     } finally {
@@ -197,13 +237,13 @@ export const TaskDetailDrawer: React.FC<TaskDetailDrawerProps> = ({
       s.id === subId ? { ...s, assigneeId: nextAssigneeId || null } : s,
     );
     setSubtasks(next);
-    void onSaveItem(item.id, { subtasks: next });
+    void saveDraftPatch({ subtasks: next }).catch(() => undefined);
   };
 
   const handleRemoveSubtask = (subId: string) => {
     const next = subtasks.filter((s) => s.id !== subId);
     setSubtasks(next);
-    void onSaveItem(item.id, { subtasks: next });
+    void saveDraftPatch({ subtasks: next }).catch(() => undefined);
   };
 
   const handleAddLink = (e: React.FormEvent) => {
@@ -222,13 +262,13 @@ export const TaskDetailDrawer: React.FC<TaskDetailDrawerProps> = ({
     setLinks(next);
     setNewLinkLabel('');
     setNewLinkUrl('');
-    void onSaveItem(item.id, { links: next });
+    void saveDraftPatch({ links: next }).catch(() => undefined);
   };
 
   const handleRemoveLink = (linkId: string) => {
     const next = links.filter((l) => l.id !== linkId);
     setLinks(next);
-    void onSaveItem(item.id, { links: next });
+    void saveDraftPatch({ links: next }).catch(() => undefined);
   };
 
   return (

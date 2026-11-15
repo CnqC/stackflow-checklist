@@ -6,7 +6,7 @@ import type {
   ProjectTable,
   ProjectTask,
 } from '../../core/domain/accountProject';
-import { getSupabaseClient } from '../../services/supabaseConfig';
+import { getAccountSupabaseClient } from '../../services/supabaseConfig';
 import { accountAuthService } from '../auth/accountAuthService';
 
 interface ProjectRow {
@@ -46,7 +46,7 @@ export class VersionConflictError extends Error {
 }
 
 function client() {
-  const value = getSupabaseClient();
+  const value = getAccountSupabaseClient();
   if (!value) throw new Error('Chưa cấu hình kết nối dữ liệu nhóm.');
   return value;
 }
@@ -291,18 +291,20 @@ export const accountProjectRepository = {
     });
     check(error);
   },
-  async setTaskAssignees(id: string, version: number, assigneeIds: string[]): Promise<void> {
-    const { error } = await client().rpc('set_task_assignees', {
+  async setTaskAssignees(id: string, version: number, assigneeIds: string[]): Promise<number> {
+    const { data, error } = await client().rpc('set_task_assignees', {
       p_task_id: id, p_expected_version: version,
       p_assignee_member_ids: assigneeIds,
     });
     check(error);
+    return Number(data);
   },
 
   async addSubtask(input: {
-    projectId: string; taskId: string; title: string; assigneeId: string | null;
+    projectId: string; taskId: string; title: string; assigneeId: string | null; id?: string;
   }): Promise<void> {
     const { error } = await client().from('subtasks').insert({
+      ...(input.id ? { id: input.id } : {}),
       project_id: input.projectId,
       task_id: input.taskId,
       title: input.title,
@@ -317,9 +319,9 @@ export const accountProjectRepository = {
     await versionedDelete('subtasks', id, version);
   },
 
-  async addTaskLink(projectId: string, taskId: string, label: string, url: string): Promise<void> {
+  async addTaskLink(projectId: string, taskId: string, label: string, url: string, id?: string): Promise<void> {
     const { error } = await client().from('task_links').insert({
-      project_id: projectId, task_id: taskId, label, url,
+      ...(id ? { id } : {}), project_id: projectId, task_id: taskId, label, url,
     });
     check(error);
   },
