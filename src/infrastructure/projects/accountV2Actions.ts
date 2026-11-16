@@ -21,7 +21,11 @@ export async function saveV2Item(data: ProjectData, itemId: string, patch: V2Ite
   const taskPatch: Partial<ProjectTask> = {};
   if (patch.title !== undefined && patch.title.trim() !== task.title) taskPatch.title = patch.title.trim();
   if (patch.notes !== undefined && patch.notes !== task.notes) taskPatch.notes = patch.notes;
-  if (patch.status !== undefined && patch.status !== task.status) taskPatch.status = patch.status;
+  if (patch.status !== undefined && patch.status !== task.status) {
+    taskPatch.status = patch.status;
+    if (patch.status === 'done' && !task.completed) taskPatch.completed = true;
+    else if (patch.status !== 'done' && task.completed) taskPatch.completed = false;
+  }
   if (patch.priority !== undefined && patch.priority !== task.priority) taskPatch.priority = patch.priority;
   if (patch.dueDate !== undefined && (patch.dueDate || null) !== task.due_date) taskPatch.due_date = patch.dueDate || null;
   if (patch.stackId !== undefined && patch.stackId !== task.stack_id) taskPatch.stack_id = patch.stackId;

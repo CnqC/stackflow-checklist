@@ -111,15 +111,30 @@ export function useAccountNoticeBridge(params: {
       hydratedScopeRef.current = scope;
       seenActivityIdsRef.current = new Set(activities.map((a) => a.id));
 
+      const knownLocalIds = new Set(
+        notificationService.getNotices(projectId, actorMemberId).map((n) => n.id),
+      );
       const initialServerNotices = serverNotices
         .filter((n) => n.recipient_member_id === actorMemberId)
         .map((n) => mapServerNoticeToV2(n, v2Snapshot.workspace.code));
 
-      if (initialServerNotices.length > 0) {
-        notificationService.dispatchNotices(initialServerNotices, {
+      const silentNotices = initialServerNotices.filter((n) => n.read || knownLocalIds.has(n.id));
+      const freshUnreadAssignments = initialServerNotices.filter((n) => !n.read && !knownLocalIds.has(n.id));
+
+      if (silentNotices.length > 0) {
+        notificationService.dispatchNotices(silentNotices, {
           deviceAlert: false,
           snapshot: v2Snapshot,
         });
+      }
+      if (freshUnreadAssignments.length > 0) {
+        const accepted = notificationService.dispatchNotices(freshUnreadAssignments, {
+          deviceAlert: true,
+          snapshot: v2Snapshot,
+        });
+        if (accepted.length > 0) {
+          onLiveNoticeRef.current?.(accepted[0]!);
+        }
       }
     } else {
       const myServerNotices = serverNotices
@@ -151,7 +166,10 @@ export function useAccountNoticeBridge(params: {
           snapshot: v2Snapshot,
         });
         if (accepted.length > 0) {
-          onLiveNoticeRef.current?.(accepted[0]!);
+          const priorityToast =
+            accepted.find((n) => n.kind === 'task_assigned' || n.kind === 'subtask_assigned') ??
+            accepted[0]!;
+          onLiveNoticeRef.current?.(priorityToast);
         }
       }
     }

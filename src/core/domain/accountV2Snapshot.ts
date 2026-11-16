@@ -27,13 +27,24 @@ export function toV2WorkspaceSnapshot(data: ProjectData): WorkspaceSnapshot {
     }));
 
   const memberNames = new Map(members.map((member) => [member.id, member.name]));
+  const nameByUserId = new Map<string, string>();
   const colorByUserId = new Map<string, string>();
   const colorByName = new Map<string, string>();
   data.members.forEach((rawMember, idx) => {
     const resolvedColor = rawMember.avatar_color || MEMBER_PALETTE[idx % MEMBER_PALETTE.length]!;
+    nameByUserId.set(rawMember.user_id, rawMember.display_name);
     colorByUserId.set(rawMember.user_id, resolvedColor);
     colorByName.set(rawMember.display_name, resolvedColor);
   });
+
+  const latestActorByTitle = new Map<string, string>();
+  for (const act of data.activities) {
+    const key = act.target_title.trim();
+    if (key && !latestActorByTitle.has(key)) {
+      const liveName = (act.actor_user_id ? nameByUserId.get(act.actor_user_id) : undefined) ?? act.actor_name;
+      latestActorByTitle.set(key, liveName);
+    }
+  }
 
   return {
     workspace: {
@@ -103,24 +114,31 @@ export function toV2WorkspaceSnapshot(data: ProjectData): WorkspaceSnapshot {
             ? (memberNames.get(task.completed_by_member_id) ?? null)
             : null,
           completedAt: null,
-          updatedByName: null,
+          updatedByName:
+            latestActorByTitle.get((task.title ?? '').trim()) ??
+            (task.created_by_member_id ? (memberNames.get(task.created_by_member_id) ?? null) : null),
           createdAt: task.created_at,
           updatedAt: task.created_at,
         };
       }),
-    activities: data.activities.map((activity): ActivityLog => ({
-      id: activity.id,
-      workspaceId: activity.project_id,
-      actorId: null,
-      actorName: activity.actor_name,
-      actorColor:
-        (activity.actor_user_id ? colorByUserId.get(activity.actor_user_id) : undefined) ??
-        colorByName.get(activity.actor_name) ??
-        '#6366f1',
-      actionType: mapActivityActionType(activity.action_type, activity.detail),
-      targetTitle: activity.target_title,
-      detail: describeProjectActivityVi(activity.action_type, activity.detail).detailVi,
-      createdAt: activity.created_at,
-    })),
+    activities: data.activities.map((activity): ActivityLog => {
+      const liveActorName =
+        (activity.actor_user_id ? nameByUserId.get(activity.actor_user_id) : undefined) ??
+        activity.actor_name;
+      return {
+        id: activity.id,
+        workspaceId: activity.project_id,
+        actorId: null,
+        actorName: liveActorName,
+        actorColor:
+          (activity.actor_user_id ? colorByUserId.get(activity.actor_user_id) : undefined) ??
+          colorByName.get(liveActorName) ??
+          '#6366f1',
+        actionType: mapActivityActionType(activity.action_type, activity.detail),
+        targetTitle: activity.target_title,
+        detail: describeProjectActivityVi(activity.action_type, activity.detail).detailVi,
+        createdAt: activity.created_at,
+      };
+    }),
   };
 }

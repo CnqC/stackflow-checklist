@@ -49,6 +49,9 @@ export interface ProjectInvitation {
   expiresAt: string;
 }
 
+type RealtimeChannelHandle = ReturnType<ReturnType<typeof accountClient>['channel']>;
+const activeProjectChannels = new Map<string, RealtimeChannelHandle>();
+
 export const accountProjectRepository = {
   ...accountProjectMutations,
 
@@ -213,7 +216,24 @@ export const accountProjectRepository = {
         filter: table === 'project' ? `id=eq.${projectId}` : `project_id=eq.${projectId}`,
       }, () => onChange(table));
     }
+    channel.on('broadcast', { event: 'project_mutated' }, () => onChange('project'));
+    activeProjectChannels.set(projectId, channel);
     void channel.subscribe();
-    return () => { void accountClient().removeChannel(channel); };
+    return () => {
+      if (activeProjectChannels.get(projectId) === channel) {
+        activeProjectChannels.delete(projectId);
+      }
+      void accountClient().removeChannel(channel);
+    };
+  },
+
+  notifyProjectMutated(projectId: string): void {
+    const channel = activeProjectChannels.get(projectId);
+    if (!channel) return;
+    void channel.send({
+      type: 'broadcast',
+      event: 'project_mutated',
+      payload: { at: Date.now() },
+    }).catch(() => undefined);
   },
 };

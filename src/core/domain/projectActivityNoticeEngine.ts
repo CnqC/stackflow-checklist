@@ -31,14 +31,14 @@ export function describeProjectActivityVi(
     case 'create_task':
       return {
         badgeLabel: 'Việc mới',
-        verbVi: 'vừa thêm đầu việc mới',
-        detailVi: cleanDetail || 'Vừa thêm đầu việc mới',
+        verbVi: cleanDetail ? `vừa tạo task mới (${cleanDetail})` : 'vừa thêm đầu việc mới',
+        detailVi: cleanDetail ? `Vừa tạo task • ${cleanDetail}` : 'Vừa thêm đầu việc mới',
       };
     case 'create_subtask':
       return {
         badgeLabel: 'Việc nhỏ mới',
-        verbVi: 'vừa thêm phần việc nhỏ',
-        detailVi: cleanDetail || 'Vừa thêm phần việc nhỏ',
+        verbVi: cleanDetail ? `vừa thêm phần việc nhỏ (${cleanDetail})` : 'vừa thêm phần việc nhỏ',
+        detailVi: cleanDetail ? `Thêm việc nhỏ • ${cleanDetail}` : 'Vừa thêm phần việc nhỏ',
       };
     case 'create_stack':
       return {
@@ -153,7 +153,12 @@ function hasSimultaneousDirectAssignment(
   serverNotices: readonly ProjectNotice[],
   actorMemberId: string,
 ): boolean {
-  if (activity.action_type !== 'create_task' && activity.action_type !== 'create_subtask') {
+  if (
+    activity.action_type !== 'create_task' &&
+    activity.action_type !== 'create_subtask' &&
+    activity.action_type !== 'update_task' &&
+    activity.action_type !== 'update_subtask'
+  ) {
     return false;
   }
   const actMs = Date.parse(activity.created_at);

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Activity, ArrowLeft, CheckSquare2, Filter, PanelRightClose, PanelRightOpen, Search, UserCheck, Users } from 'lucide-react';
-import type { ProjectData, ProjectStack, ProjectTable } from '../../core/domain/accountProject';
+import type { ProjectData, ProjectStack } from '../../core/domain/accountProject';
 import { translateAccountError } from '../../core/domain/projectShareLinks';
 import { sortProjectStacks, type StackSort } from '../../core/domain/accountStack';
 import { toV2WorkspaceSnapshot } from '../../core/domain/accountV2Snapshot';
@@ -68,27 +68,37 @@ export function ProjectWorkspace({ projectId, identity, onBack, onSignOut, onSet
   }, [leftSidebarOpen, rightSidebarOpen]);
 
   const refresh = useCallback(async () => setData(await accountProjectRepository.loadProject(projectId)), [projectId]);
-
-  useEffect(() => {
-    const syncOnline = () => setOnline(navigator.onLine);
-    window.addEventListener('online', syncOnline);
-    window.addEventListener('offline', syncOnline);
-    return () => { window.removeEventListener('online', syncOnline); window.removeEventListener('offline', syncOnline); };
-  }, []);
+  const refreshAndNotify = useCallback(async () => {
+    await refresh();
+    accountProjectRepository.notifyProjectMutated(projectId);
+  }, [projectId, refresh]);
 
   useEffect(() => {
     let active = true;
-    const pending = new Map<ProjectTable, ReturnType<typeof setTimeout>>();
-    void accountProjectRepository.loadProject(projectId).then((next) => { if (active) setData(next); }).catch((c: unknown) => { if (active) setError(errText(c)); });
-    const unsubscribe = accountProjectRepository.subscribe(projectId, (table) => {
-      const prev = pending.get(table);
-      if (prev) clearTimeout(prev);
-      pending.set(table, setTimeout(() => {
-        pending.delete(table);
-        void accountProjectRepository.loadTable(projectId, table).then((next) => { if (active) setData((cur) => (cur ? { ...cur, [table]: next } : cur)); }).catch((c: unknown) => { if (active) setError(errText(c)); });
-      }, 250));
-    });
-    return () => { active = false; unsubscribe(); for (const t of pending.values()) clearTimeout(t); };
+    let timer: ReturnType<typeof setTimeout> | null = null;
+    let inFlight = false;
+    let rerun = false;
+    const syncSnapshot = async (silent = false) => {
+      if (!active) return;
+      if (inFlight) { rerun = true; return; }
+      inFlight = true;
+      try { const next = await accountProjectRepository.loadProject(projectId); if (active) setData(next); }
+      catch (c: unknown) { if (active && !silent) setError(errText(c)); }
+      finally { inFlight = false; if (rerun && active) { rerun = false; void syncSnapshot(true); } }
+    };
+    const scheduleSync = () => { if (timer) clearTimeout(timer); timer = setTimeout(() => { timer = null; void syncSnapshot(true); }, 120); };
+    const onOnline = () => { setOnline(navigator.onLine); if (navigator.onLine) scheduleSync(); };
+    const onFocus = () => { if (document.visibilityState === 'visible') scheduleSync(); };
+    void syncSnapshot(false);
+    const unsubscribe = accountProjectRepository.subscribe(projectId, () => scheduleSync());
+    const pollId = setInterval(() => { if (document.visibilityState === 'visible' && navigator.onLine) void syncSnapshot(true); }, 12000);
+    window.addEventListener('online', onOnline); window.addEventListener('offline', onOnline);
+    window.addEventListener('focus', onFocus); document.addEventListener('visibilitychange', onFocus);
+    return () => {
+      active = false; unsubscribe(); clearInterval(pollId); if (timer) clearTimeout(timer);
+      window.removeEventListener('online', onOnline); window.removeEventListener('offline', onOnline);
+      window.removeEventListener('focus', onFocus); document.removeEventListener('visibilitychange', onFocus);
+    };
   }, [projectId]);
 
   const actor = useMemo(() => data?.members.find((m) => m.user_id === identity.id && m.active) ?? null, [data, identity.id]);
@@ -104,17 +114,17 @@ export function ProjectWorkspace({ projectId, identity, onBack, onSignOut, onSet
 
   const mutate = useCallback(async (action: () => Promise<unknown>): Promise<boolean> => {
     setBusy(true); setError(null);
-    try { await action(); await refresh(); return true; }
+    try { await action(); await refreshAndNotify(); return true; }
     catch (c) { setError(errText(c)); await refresh().catch(() => undefined); return false; }
     finally { setBusy(false); }
-  }, [refresh]);
+  }, [refresh, refreshAndNotify]);
 
   const mutateForV2 = useCallback(async (action: () => Promise<unknown>): Promise<void> => {
     setBusy(true); setError(null);
-    try { await action(); await refresh(); }
+    try { await action(); await refreshAndNotify(); }
     catch (c) { setError(errText(c)); await refresh().catch(() => undefined); throw c; }
     finally { setBusy(false); }
-  }, [refresh]);
+  }, [refresh, refreshAndNotify]);
 
   const openTaskFromNotice = useCallback(async (taskId: string) => {
     const task = data?.tasks.find((e) => e.id === taskId);
@@ -226,7 +236,7 @@ export function ProjectWorkspace({ projectId, identity, onBack, onSignOut, onSet
         <button type="button" onClick={() => { setTeamModalTab('roster'); setTeamModalOpen(true); }} className={`flex flex-col items-center gap-1 text-[11px] ${teamModalOpen ? 'text-indigo-300' : 'text-slate-400'}`}><Users className="h-5 w-5" />Nhóm</button>
       </nav>
 
-      <ProjectTeamModal open={teamModalOpen} initialTab={teamModalTab} project={data.project} members={data.members} currentUserId={identity.id} canManageProject={canManageProject} peers={peers} onClose={() => setTeamModalOpen(false)} onRefreshProject={refresh} onFilterByMember={setMemberFilterId} />
+      <ProjectTeamModal open={teamModalOpen} initialTab={teamModalTab} project={data.project} members={data.members} currentUserId={identity.id} canManageProject={canManageProject} peers={peers} onClose={() => setTeamModalOpen(false)} onRefreshProject={refreshAndNotify} onFilterByMember={setMemberFilterId} />
     </main>
   );
 }

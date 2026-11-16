@@ -45,9 +45,12 @@ export const TaskDetailDrawer: React.FC<TaskDetailDrawerProps> = ({
   }>({ itemId: null, version: undefined, queue: Promise.resolve(), failed: false });
 
   const activeItemId = item?.id ?? null;
+  const activeItemVersion = item?.version;
 
   useEffect(() => {
     if (!item) return;
+    const isSameItem = saveStateRef.current.itemId === item.id;
+    if (isSameItem && (saving || togglingSubtaskId || saveStateRef.current.version === item.version)) return;
     setTitle(item.title);
     setNotes(item.notes);
     setStatus(item.status);
@@ -63,10 +66,14 @@ export const TaskDetailDrawer: React.FC<TaskDetailDrawerProps> = ({
     setDueDate(item.dueDate ?? '');
     setSubtasks(item.subtasks);
     setLinks(item.links);
-    saveStateRef.current = { itemId: item.id, version: item.version, queue: Promise.resolve(), failed: false };
-    setSaveError(null);
+    if (!isSameItem) {
+      saveStateRef.current = { itemId: item.id, version: item.version, queue: Promise.resolve(), failed: false };
+      setSaveError(null);
+    } else {
+      saveStateRef.current.version = item.version;
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeItemId]);
+  }, [activeItemId, activeItemVersion]);
 
   if (!item) return null;
   const canToggleTaskCompletion = Boolean(currentMember && canCompleteTask(item, currentMember.id));
