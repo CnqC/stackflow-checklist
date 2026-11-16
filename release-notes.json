@@ -1,9 +1,9 @@
 {
-  "title": "StackFlow 1.2.0: Hợp nhất Giao diện App V2 & Đăng nhập Google Cloud",
+  "title": "StackFlow 1.2.1: Chia sẻ Dự Án Đa Kênh (Gmail, Zalo, Telegram) & Tự Động Vào Nhóm Qua Link",
   "changes": [
-    "Thay thế hoàn toàn mã PIN phòng bằng đăng nhập Google OAuth 1 chạm kèm màn hình chào mừng chuẩn phong cách App V2.",
-    "Nâng cấp mời thành viên đa kênh: Link & Mã mời nhanh SF-XXXXXX cho Zalo/Discord (tự nhận diện ?join= khi đăng nhập) kết hợp mời đích danh qua Gmail.",
-    "Giữ trọn vẹn 100% trải nghiệm App V2: Stack tuần tự, phần việc nhỏ, đính kèm Link, 9 giao diện màu, đếm Online trực tiếp và Chuông báo việc đa nền tảng.",
-    "Hỗ trợ cài đặt 1 chạm cho Web, Desktop PWA (Windows/Mac) và gói cài đặt gốc StackFlow-Checklist.apk trên Android."
+    "Sửa triệt để đường dẫn chia sẻ dự án (?join=SF-XXXXXX) và link tải APK trên cả GitHub Pages (/stackflow-checklist/) lẫn ứng dụng Android.",
+    "Bổ sung cụm nút Gửi nhanh Link dự án qua Gmail, Zalo, Telegram kèm nút Chia sẻ 1 chạm ngay trên thanh công cụ chính.",
+    "Nâng cấp mời đích danh qua Gmail: tự động cấp quyền trong dự án đồng thời mở cửa sổ soạn thư Gmail kèm sẵn tiêu đề & đường dẫn cho đối tác.",
+    "Tự động đưa đối tác vào thẳng dự án ngay sau khi đăng nhập Google từ Link mời, kèm hướng dẫn mở sang Chrome/Safari khi bấm Link từ trình duyệt thu nhỏ của Zalo."
   ]
 }

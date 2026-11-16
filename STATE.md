@@ -19,7 +19,7 @@ Last run: 2026-11-16 | Health Score: 100/100 (Google Account + V2 App Parity)
 - [x] `SLICE-08` — Reset sạch & áp dụng schema mới lên Supabase tài khoản (`xwzwsysekkizxmmjjjvn`), nghiệm thu toàn diện (`doctor 100/100`, `typecheck`, `test`, `test:db`, `build`), xuất gói Web/PWA Desktop + build `StackFlow-Checklist.apk` & chụp ảnh kiểm chứng thị giác 1:1
 - [x] `SLICE-09` — Sửa gốc tầng Domain & Infrastructure Chia Sẻ Dự Án (`projectShareLinks.ts`, `shareChannelLauncher.ts`, sửa lỗi mất subpath `/stackflow-checklist/` trên GitHub Pages, lỗi `https://localhost` trên APK, lỗi URL `.io./StackFlow-Checklist.apk`, lưu giữ `?join=` bền vững qua `localStorage` + `sessionStorage` & Việt hóa thông báo lỗi)
 - [x] `SLICE-10` — Nâng cấp UI Chia Sẻ Đa Kênh (`Gmail` / `Zalo` / `Telegram` / `Copy Link`), nút Chia sẻ 1 chạm trên Top Toolbar (Desktop + Mobile), tự động gửi thư Gmail kèm Link khi mời email, hướng dẫn vượt WebView nhúng Zalo & tự mở dự án sau Google OAuth
-- [ ] `SLICE-11` — Kiểm thử tích hợp toàn diện (Unit + Component + DB + Browser Preview Desktop/Mobile), đóng gói bản build Web/PWA + `StackFlow-Checklist.apk` sạch sẵn sàng gửi đối tác & chốt sổ bàn giao
+- [x] `SLICE-11` — Kiểm thử tích hợp toàn diện (Unit + Component + DB + Browser Preview Desktop/Mobile), đóng gói bản build Web/PWA + `StackFlow-Checklist.apk` sạch sẵn sàng gửi đối tác & chốt sổ bàn giao
 
 ---
 
@@ -36,5 +36,6 @@ Last run: 2026-11-16 | Health Score: 100/100 (Google Account + V2 App Parity)
 ---
 
 ## 4. Run Log (Nhật ký các đợt bảo trì / nâng cấp)
+- `2026-11-16` | Hoàn tất 3 lát cắt hội tụ (`SLICE-09` -> `SLICE-11`, nâng phiên bản `v1.2.1`): khắc phục triệt để lỗi chia sẻ dự án (mất subpath `/stackflow-checklist/` trên GitHub Pages gây 404, lộ `https://localhost` trên APK, lỗi cú pháp link tải `.io./StackFlow-Checklist.apk`), bổ sung gửi Link trực tiếp qua **Gmail / Zalo / Telegram** + nút Chia sẻ 1 chạm trên Top Toolbar, tự mở cửa sổ soạn Gmail kèm Link khi mời email, tự động vào thẳng dự án sau khi đăng nhập Google từ Link `?join=` và cảnh báo vượt WebView thu nhỏ của Zalo; pass `doctor 100/100`, `oxlint 0 errors`, `64/64` Vitest tests, PGlite RLS tests & kiểm chứng hình ảnh `1920x1080` + `390x844`.
 - `2026-11-16` | Hoàn tất toàn bộ 8 lát cắt hội tụ (`SLICE-01` -> `SLICE-08`): gỡ bỏ hoàn toàn luồng PIN cũ, giữ nguyên 100% UI/UX & Theme Engine của Bản App V2, ghép đăng nhập Google OAuth + mời đa kênh (Link/Mã mời nhanh Zalo `?join=SF-XXXXXX` + Email Google), áp dụng migration `202611160001` & reset sạch dự án trên Supabase tài khoản (`xwzwsysekkizxmmjjjvn`), đạt `npm run doctor` `100/100` và đóng gói Web/PWA Desktop + `StackFlow-Checklist.apk`.
 - `2026-11-16` | Khảo sát L1 (`loop-triage`): phát hiện 23 file dở trên nhánh `v2-google-auth` và 14 file > 250 dòng khiến `doctor` đạt `0/100`; đã chốt 3 quyết định sản phẩm cùng Cao Nhật Quang và lập lộ trình 8 lát cắt hội tụ.

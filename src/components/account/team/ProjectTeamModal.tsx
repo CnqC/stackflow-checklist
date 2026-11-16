@@ -133,7 +133,7 @@ export function ProjectTeamModal({
               role="tab"
               aria-selected={tab === id}
               onClick={() => setTab(id)}
-              className={`inline-flex items-center justify-center gap-1.5 rounded-xl px-3 py-2 text-xs font-bold transition cursor-pointer ${
+              className={`inline-flex items-center justify-center gap-1 rounded-xl px-1.5 py-2 text-[11px] font-bold transition sm:gap-1.5 sm:px-3 sm:text-xs cursor-pointer ${
                 tab === id
                   ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/25'
                   : 'text-slate-400 hover:bg-slate-800/80 hover:text-foreground'

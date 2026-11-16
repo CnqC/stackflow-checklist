@@ -1,6 +1,6 @@
-# Bàn Giao Tổng Thể StackFlow — Bản Hợp Nhất Google Cloud & UI App V2
+# Bàn Giao Tổng Thể StackFlow v1.2.1 — Bản Hợp Nhất Google Cloud, Chia Sẻ Đa Kênh & UI App V2
 
-**Cập nhật nghiệm thu:** 16/11/2026 trên nhánh `v2-google-auth`.
+**Cập nhật nghiệm thu:** 16/11/2026 trên nhánh `master` (`v1.2.1`).
 
 ## 1. Kiến trúc sản phẩm hiện hành
 
@@ -24,8 +24,8 @@
 3. **Modal Quản lý Nhóm & Cài đặt App 3 Tab (`ProjectTeamModal.tsx`)**:
    - **Tab Nhóm (`X/20`)**: Đổi tên hiển thị, vai trò, màu Avatar cá nhân; xem trạng thái `● Online (Web/App)` trực tiếp qua Supabase Realtime Presence; Chủ dự án chỉnh vai trò, tạm dừng/mở lại quyền thành viên (thành viên bị tạm dừng không thể tự lách qua mã mời chung) hoặc chuyển quyền Chủ dự án.
    - **Tab Mời thành viên**:
-     - *Kênh 1*: Link & Mã mời nhanh `SF-XXXXXX` (1 chạm sao chép trọn bộ tin nhắn mời Zalo kèm link Web và link tải APK; bật/tắt mã, đổi mã mới, đặt hạn dùng 7/30 ngày).
-     - *Kênh 2*: Mời đích danh qua Gmail kèm vai trò gợi ý và danh sách chờ xác nhận / thu hồi.
+     - *Kênh 1 (Chia sẻ qua Link)*: Đường dẫn chuẩn `https://cnqc.github.io/stackflow-checklist/?join=SF-XXXXXX` hoạt động nhất quán trên cả Web, Desktop PWA và Android APK; tích hợp cụm nút gửi trực tiếp qua **Gmail**, **Zalo**, **Telegram** + sao chép nhanh 1 chạm; tự động đưa đối tác vào thẳng dự án ngay sau bước đăng nhập Google và hỗ trợ mở sang Chrome/Safari khi bấm từ WebView thu nhỏ của Zalo.
+     - *Kênh 2 (Mời đích danh qua Gmail)*: Vừa lưu quyền email trên Supabase vừa tự động mở cửa sổ soạn thư Gmail gửi sẵn đường dẫn & vai trò cho đối tác, kèm nút gửi lại / thu hồi trên từng lời mời chờ.
    - **Tab Cài đặt App**: Cài đặt 1 chạm Desktop PWA (`beforeinstallprompt` trên Edge/Chrome Windows & Mac), tải trực tiếp `StackFlow-Checklist.apk` cho Android và hướng dẫn thêm ra màn hình chính trên iPhone/iPad Safari.
 
 ## 3. Trạng thái Database Tài khoản (`xwzwsysekkizxmmjjjvn`)
