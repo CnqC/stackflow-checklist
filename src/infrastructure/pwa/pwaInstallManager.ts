@@ -1,3 +1,6 @@
+import { Capacitor } from '@capacitor/core';
+import { buildApkDownloadUrl, resolvePublicWebBaseUrl } from '../../core/domain/projectShareLinks';
+
 interface BeforeInstallPromptEvent extends Event {
   prompt: () => Promise<void>;
   userChoice: Promise<{ outcome: 'accepted' | 'dismissed'; platform: string }>;
@@ -62,8 +65,15 @@ export const pwaInstallManager = {
 
   getApkDownloadUrl(): string {
     if (typeof window === 'undefined') return './StackFlow-Checklist.apk';
-    const base = import.meta.env.BASE_URL || '/';
-    const normalizedBase = base.endsWith('/') ? base : `${base}/`;
-    return `${window.location.origin}${normalizedBase}StackFlow-Checklist.apk`;
+    const configured = (import.meta.env.VITE_PUBLIC_APP_URL as string | undefined)?.trim();
+    const publicBase = resolvePublicWebBaseUrl({
+      configuredBaseUrl: configured,
+      protocol: window.location.protocol,
+      hostname: window.location.hostname,
+      origin: window.location.origin,
+      pathname: window.location.pathname,
+      isNativePlatform: Capacitor.isNativePlatform(),
+    });
+    return buildApkDownloadUrl(publicBase);
   },
 };

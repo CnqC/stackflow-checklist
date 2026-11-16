@@ -2,6 +2,7 @@ import type { AuthChangeEvent, Session, User } from '@supabase/supabase-js';
 import { App } from '@capacitor/app';
 import { Browser } from '@capacitor/browser';
 import { Capacitor } from '@capacitor/core';
+import { resolveOAuthRedirectUrl } from '../../core/domain/projectShareLinks';
 import { getAccountSupabaseClient } from '../../services/supabaseConfig';
 
 export interface AccountIdentity {
@@ -66,7 +67,12 @@ export const accountAuthService = {
     const native = Capacitor.isNativePlatform();
     const redirectTo = native
       ? NATIVE_REDIRECT
-      : new URL(import.meta.env.BASE_URL, window.location.href).href;
+      : resolveOAuthRedirectUrl({
+          protocol: window.location.protocol,
+          hostname: window.location.hostname,
+          origin: window.location.origin,
+          pathname: window.location.pathname,
+        });
     const { data, error } = await requireClient().auth.signInWithOAuth({
       provider: 'google',
       options: { redirectTo, skipBrowserRedirect: native },

@@ -51,9 +51,30 @@ export function extractJoinCode(rawInputOrUrl: string): string | null {
   const trimmed = rawInputOrUrl.trim();
   if (!trimmed) return null;
 
-  const queryMatch = trimmed.match(/[?&]join=([a-zA-Z0-9-]{4,20})/i);
-  const candidate = (queryMatch ? queryMatch[1]! : trimmed).trim().toUpperCase();
+  let decoded = trimmed;
+  if (trimmed.includes('%')) {
+    try {
+      decoded = decodeURIComponent(trimmed);
+    } catch {
+      decoded = trimmed;
+    }
+  }
 
+  for (const source of [decoded, trimmed]) {
+    const queryOrHashMatch = source.match(/[?&#]join=([a-zA-Z0-9-]{4,20})/i);
+    if (queryOrHashMatch?.[1]) {
+      const fromParam = queryOrHashMatch[1].trim().toUpperCase();
+      if (/^SF-[A-Z0-9]{6,12}$/.test(fromParam)) return fromParam;
+      if (/^[A-Z0-9]{6,12}$/.test(fromParam)) return `SF-${fromParam}`;
+    }
+
+    const inlineTokenMatch = source.match(/\bSF-([A-Z0-9]{6,12})\b/i);
+    if (inlineTokenMatch?.[1]) {
+      return `SF-${inlineTokenMatch[1].toUpperCase()}`;
+    }
+  }
+
+  const candidate = trimmed.toUpperCase();
   if (/^SF-[A-Z0-9]{6,12}$/.test(candidate)) {
     return candidate;
   }

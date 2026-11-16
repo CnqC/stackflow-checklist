@@ -7,6 +7,7 @@ import {
   CreateProjectInputSchema,
   InviteMemberEmailSchema,
 } from '../../core/domain/accountSchemas';
+import { translateAccountError } from '../../core/domain/projectShareLinks';
 import { accountAuthService } from '../auth/accountAuthService';
 import {
   accountClient,
@@ -100,7 +101,9 @@ export const accountProjectRepository = {
     jobTitle?: string;
     avatarColor?: string;
   }): Promise<string> {
-    const parsed = CreateProjectInputSchema.parse(input);
+    let parsed: ReturnType<typeof CreateProjectInputSchema.parse>;
+    try { parsed = CreateProjectInputSchema.parse(input); }
+    catch (cause) { throw new Error(translateAccountError(cause)); }
     const payload: Record<string, unknown> = {
       p_code: parsed.code,
       p_name: parsed.name,
@@ -115,7 +118,9 @@ export const accountProjectRepository = {
   },
 
   async invite(projectId: string, email: string, jobTitle?: string): Promise<void> {
-    const parsed = InviteMemberEmailSchema.parse({ projectId, email, jobTitle });
+    let parsed: ReturnType<typeof InviteMemberEmailSchema.parse>;
+    try { parsed = InviteMemberEmailSchema.parse({ projectId, email, jobTitle }); }
+    catch (cause) { throw new Error(translateAccountError(cause)); }
     const payload: Record<string, unknown> = { p_project_id: parsed.projectId, p_email: parsed.email };
     if (parsed.jobTitle !== undefined) payload.p_job_title = parsed.jobTitle;
     const { error } = await accountClient().rpc('invite_project_member', payload);

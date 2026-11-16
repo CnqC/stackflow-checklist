@@ -5,16 +5,28 @@ import type {
 } from '../../core/domain/accountProject';
 import {
   ConfigureJoinLinkInputSchema,
-  extractJoinCode,
   JoinCodeInputSchema,
   UpdateMemberRoleInputSchema,
   UpdateMyProfileInputSchema,
 } from '../../core/domain/accountSchemas';
+import { translateAccountError } from '../../core/domain/projectShareLinks';
 import { detectPlatform } from '../../core/domain/stackDomain';
 import type { Member, PresencePeer } from '../../types/models';
 import { accountClient, checkDbError } from './accountProjectMutations';
+export {
+  capturePendingJoinCodeFromUrl,
+  clearPendingJoinCode,
+  consumePendingJoinAutoConfirm,
+  markPendingJoinAutoConfirm,
+} from './shareChannelLauncher';
 
-const PENDING_JOIN_STORAGE_KEY = 'stackflow_v3_pending_join_code';
+function parseSafe<T>(fn: () => T): T {
+  try {
+    return fn();
+  } catch (cause) {
+    throw new Error(translateAccountError(cause));
+  }
+}
 
 interface PendingInvitationRow {
   id: string;
@@ -51,36 +63,6 @@ function mapJoinLinkRow(row: JoinLinkRow): ProjectJoinLinkInfo {
     expiresAt: row.expires_at,
     useCount: row.use_count ?? 0,
   };
-}
-
-export function capturePendingJoinCodeFromUrl(): string | null {
-  if (typeof window === 'undefined') return null;
-  try {
-    const fromUrl = extractJoinCode(window.location.search);
-    if (fromUrl) {
-      window.sessionStorage.setItem(PENDING_JOIN_STORAGE_KEY, fromUrl);
-      return fromUrl;
-    }
-    const stored = window.sessionStorage.getItem(PENDING_JOIN_STORAGE_KEY);
-    return stored ? extractJoinCode(stored) : null;
-  } catch {
-    return null;
-  }
-}
-
-export function clearPendingJoinCode(): void {
-  if (typeof window === 'undefined') return;
-  try {
-    window.sessionStorage.removeItem(PENDING_JOIN_STORAGE_KEY);
-    const url = new URL(window.location.href);
-    if (url.searchParams.has('join')) {
-      url.searchParams.delete('join');
-      const next = `${url.pathname}${url.search}${url.hash}`;
-      window.history.replaceState({}, '', next);
-    }
-  } catch {
-    // Ignore storage/history restrictions in sandboxed webviews
-  }
 }
 
 export const accountTeamInviteRepository = {
@@ -130,7 +112,7 @@ export const accountTeamInviteRepository = {
     defaultJobTitle?: string;
     expiresInDays?: number;
   }): Promise<ProjectJoinLinkInfo> {
-    const parsed = ConfigureJoinLinkInputSchema.parse(input);
+    const parsed = parseSafe(() => ConfigureJoinLinkInputSchema.parse(input));
     const { data, error } = await accountClient().rpc('configure_project_join_link', {
       p_project_id: parsed.projectId,
       p_enabled: parsed.enabled,
@@ -145,7 +127,7 @@ export const accountTeamInviteRepository = {
   },
 
   async previewByJoinCode(rawCodeOrUrl: string): Promise<JoinCodePreview | null> {
-    const joinCode = JoinCodeInputSchema.parse(rawCodeOrUrl);
+    const joinCode = parseSafe(() => JoinCodeInputSchema.parse(rawCodeOrUrl));
     const { data, error } = await accountClient().rpc('preview_project_by_join_code', {
       p_join_code: joinCode,
     });
@@ -163,7 +145,7 @@ export const accountTeamInviteRepository = {
   },
 
   async joinByCode(rawCodeOrUrl: string, jobTitle: string = ''): Promise<string> {
-    const joinCode = JoinCodeInputSchema.parse(rawCodeOrUrl);
+    const joinCode = parseSafe(() => JoinCodeInputSchema.parse(rawCodeOrUrl));
     const { data, error } = await accountClient().rpc('join_project_by_code', {
       p_join_code: joinCode,
       p_job_title: jobTitle.trim(),
@@ -178,7 +160,7 @@ export const accountTeamInviteRepository = {
     jobTitle: string;
     avatarColor: string;
   }): Promise<void> {
-    const parsed = UpdateMyProfileInputSchema.parse(input);
+    const parsed = parseSafe(() => UpdateMyProfileInputSchema.parse(input));
     const { error } = await accountClient().rpc('update_my_project_profile', {
       p_project_id: parsed.projectId,
       p_display_name: parsed.displayName,
@@ -193,7 +175,7 @@ export const accountTeamInviteRepository = {
     memberId: string;
     jobTitle: string;
   }): Promise<void> {
-    const parsed = UpdateMemberRoleInputSchema.parse(input);
+    const parsed = parseSafe(() => UpdateMemberRoleInputSchema.parse(input));
     const { error } = await accountClient().rpc('update_project_member_role', {
       p_project_id: parsed.projectId,
       p_member_id: parsed.memberId,

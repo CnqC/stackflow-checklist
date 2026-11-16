@@ -17,6 +17,9 @@ Last run: 2026-11-16 | Health Score: 100/100 (Google Account + V2 App Parity)
 - [x] `SLICE-06` — Xây dựng Modal Quản Lý Nhóm & Cài Đặt App 3 Tab chuẩn thiết kế App V2 (`ProjectTeamModal`: Mời Email + Link/Mã mời nhanh 1 chạm sao chép tin nhắn Zalo, Thành viên/Hồ sơ Online & màu Avatar, Cài đặt PWA Desktop/Android APK/iOS)
 - [x] `SLICE-07` — Hợp nhất khung Workspace chuẩn 100% giao diện Bản App V2 (`WorkspaceLeftSidebar`, `WorkspaceTopToolbar`, `WorkspaceMobileBars`, tích hợp Chuông Thông Báo đa nền tảng Web/PWA/Android APK + `AppSettingsModal`)
 - [x] `SLICE-08` — Reset sạch & áp dụng schema mới lên Supabase tài khoản (`xwzwsysekkizxmmjjjvn`), nghiệm thu toàn diện (`doctor 100/100`, `typecheck`, `test`, `test:db`, `build`), xuất gói Web/PWA Desktop + build `StackFlow-Checklist.apk` & chụp ảnh kiểm chứng thị giác 1:1
+- [x] `SLICE-09` — Sửa gốc tầng Domain & Infrastructure Chia Sẻ Dự Án (`projectShareLinks.ts`, `shareChannelLauncher.ts`, sửa lỗi mất subpath `/stackflow-checklist/` trên GitHub Pages, lỗi `https://localhost` trên APK, lỗi URL `.io./StackFlow-Checklist.apk`, lưu giữ `?join=` bền vững qua `localStorage` + `sessionStorage` & Việt hóa thông báo lỗi)
+- [ ] `SLICE-10` — Nâng cấp UI Chia Sẻ Đa Kênh (`Gmail` / `Zalo` / `Telegram` / `Copy Link`), nút Chia sẻ 1 chạm trên Top Toolbar (Desktop + Mobile), tự động gửi thư Gmail kèm Link khi mời email, hướng dẫn vượt WebView nhúng Zalo & tự mở dự án sau Google OAuth
+- [ ] `SLICE-11` — Kiểm thử tích hợp toàn diện (Unit + Component + DB + Browser Preview Desktop/Mobile), đóng gói bản build Web/PWA + `StackFlow-Checklist.apk` sạch sẵn sàng gửi đối tác & chốt sổ bàn giao
 
 ---
 

@@ -1,4 +1,5 @@
 import type { ProjectStack, ProjectSubtask, ProjectTask } from '../../core/domain/accountProject';
+import { translateAccountError } from '../../core/domain/projectShareLinks';
 import { getAccountSupabaseClient } from '../../services/supabaseConfig';
 
 export class VersionConflictError extends Error {
@@ -17,7 +18,7 @@ export function accountClient() {
 export function checkDbError(error: { message: string; code?: string } | null): void {
   if (!error) return;
   if (error.code === '40001') throw new VersionConflictError();
-  throw new Error(error.message);
+  throw new Error(translateAccountError(error.message));
 }
 
 export async function versionedUpdate(
