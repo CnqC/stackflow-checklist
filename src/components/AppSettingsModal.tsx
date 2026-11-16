@@ -7,10 +7,11 @@ import { UpdateSettings } from './UpdateSettings';
 import { AppInstallTab } from './account/team/AppInstallTab';
 import type { SyncMode, WorkspaceSnapshot } from '../types/models';
 
-type SettingsTab = 'appearance' | 'notifications' | 'application';
+export type SettingsTab = 'appearance' | 'notifications' | 'application';
 
 interface Props {
   open: boolean;
+  initialTab?: SettingsTab;
   onClose: () => void;
   snapshot: WorkspaceSnapshot | null;
   memberId: string | null;
@@ -25,9 +26,21 @@ const TABS = [
   { id: 'application', label: 'Ứng dụng', Icon: Download },
 ] as const;
 
-export function AppSettingsModal({ open, onClose, snapshot, memberId, syncMode, onOpenCloud, onOpenInstall }: Props) {
-  const [tab, setTab] = useState<SettingsTab>('appearance');
-  const activeTab = tab === 'notifications' && (!snapshot || !memberId) ? 'appearance' : tab;
+export function AppSettingsModal({
+  open,
+  initialTab = 'appearance',
+  onClose,
+  snapshot,
+  memberId,
+  syncMode,
+  onOpenCloud,
+  onOpenInstall,
+}: Props) {
+  const [tab, setTab] = useState<SettingsTab>(initialTab);
+
+  useEffect(() => {
+    if (open) setTab(initialTab);
+  }, [open, initialTab]);
 
   useEffect(() => {
     if (!open) return;
@@ -39,6 +52,9 @@ export function AppSettingsModal({ open, onClose, snapshot, memberId, syncMode, 
   }, [open, onClose]);
 
   if (!open) return null;
+
+  const effectiveWorkspaceId = snapshot?.workspace.id ?? 'global';
+  const effectiveMemberId = memberId ?? 'default';
 
   return (
     <div
@@ -69,15 +85,15 @@ export function AppSettingsModal({ open, onClose, snapshot, memberId, syncMode, 
         </div>
 
         <div className="flex overflow-x-auto border-b border-slate-800 px-3 sm:px-5" role="tablist" aria-label="Mục cài đặt">
-          {TABS.filter(({ id }) => id !== 'notifications' || (snapshot && memberId)).map(({ id, label, Icon }) => (
+          {TABS.map(({ id, label, Icon }) => (
             <button
               key={id}
               type="button"
               role="tab"
-              aria-selected={activeTab === id}
+              aria-selected={tab === id}
               onClick={() => setTab(id)}
               className={`inline-flex items-center gap-1.5 whitespace-nowrap border-b-2 px-3 py-3 text-xs font-semibold cursor-pointer ${
-                activeTab === id
+                tab === id
                   ? 'border-indigo-500 text-indigo-300'
                   : 'border-transparent text-slate-400 hover:text-foreground'
               }`}
@@ -89,16 +105,27 @@ export function AppSettingsModal({ open, onClose, snapshot, memberId, syncMode, 
         </div>
 
         <div className="overflow-y-auto p-4 sm:p-5">
-          {activeTab === 'appearance' && <AppearanceSettings />}
-          {activeTab === 'notifications' && snapshot && memberId && (
+          {tab === 'appearance' && <AppearanceSettings />}
+          {tab === 'notifications' && (
             <div className="space-y-6">
-              <DeviceNotificationSettings snapshot={snapshot} memberId={memberId} syncMode={syncMode} />
-              <div className="border-t border-slate-800 pt-5">
-                <NotificationSettings workspaceId={snapshot.workspace.id} memberId={memberId} />
-              </div>
+              {snapshot && memberId ? (
+                <>
+                  <DeviceNotificationSettings snapshot={snapshot} memberId={memberId} syncMode={syncMode} />
+                  <div className="border-t border-slate-800 pt-5">
+                    <NotificationSettings workspaceId={effectiveWorkspaceId} memberId={effectiveMemberId} />
+                  </div>
+                </>
+              ) : (
+                <>
+                  <p className="rounded-xl border border-indigo-500/35 bg-indigo-500/10 p-3 text-xs text-indigo-200">
+                    Hãy mở một dự án bất kỳ để cấu hình riêng theo dự án &amp; bắn thử thông báo nổi. Bạn vẫn có thể nghe thử 10 tiếng chuông ngay bên dưới!
+                  </p>
+                  <NotificationSettings workspaceId={effectiveWorkspaceId} memberId={effectiveMemberId} />
+                </>
+              )}
             </div>
           )}
-          {activeTab === 'application' && (
+          {tab === 'application' && (
             <div className="space-y-4">
               <h3 className="text-sm font-bold text-foreground">Ứng dụng và đồng bộ</h3>
               <UpdateSettings />

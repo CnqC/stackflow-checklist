@@ -6,11 +6,14 @@ import { sortProjectStacks, type StackSort } from '../../core/domain/accountStac
 import { toV2WorkspaceSnapshot } from '../../core/domain/accountV2Snapshot';
 import type { AccountIdentity } from '../../infrastructure/auth/accountAuthService';
 import { useAccountNoticeBridge } from '../../infrastructure/notifications/accountNoticeBridge';
+import { notificationService } from '../../infrastructure/notifications/notificationService';
 import { accountProjectRepository } from '../../infrastructure/projects/accountProjectRepository';
 import { accountTeamInviteRepository } from '../../infrastructure/projects/accountTeamInviteRepository';
 import { saveV2Item } from '../../infrastructure/projects/accountV2Actions';
-import type { PresencePeer, WorkspaceSnapshot } from '../../types/models';
+import type { AppNotice, PresencePeer, WorkspaceSnapshot } from '../../types/models';
 import { ActivityPanel } from '../ActivityPanel';
+import type { SettingsTab } from '../AppSettingsModal';
+import { LiveNoticeToast } from '../LiveNoticeToast';
 import { StackGroupCard } from '../StackGroupCard';
 import { TaskDetailDrawer } from '../TaskDetailDrawer';
 import { AdminObserverStackList } from './AdminObserverStackList';
@@ -24,7 +27,7 @@ interface Props {
   identity: AccountIdentity;
   onBack: () => void;
   onSignOut: () => void;
-  onSettings: () => void;
+  onSettings: (initialTab?: SettingsTab) => void;
   onSnapshotChange?: (snapshot: WorkspaceSnapshot | null, memberId: string | null) => void;
 }
 
@@ -57,6 +60,7 @@ export function ProjectWorkspace({ projectId, identity, onBack, onSignOut, onSet
   const [showAddStack, setShowAddStack] = useState(false);
   const [online, setOnline] = useState(() => typeof navigator === 'undefined' || navigator.onLine);
   const [peers, setPeers] = useState<PresencePeer[]>([]);
+  const [liveNotice, setLiveNotice] = useState<AppNotice | null>(null);
 
   useEffect(() => {
     try { window.localStorage.setItem(SIDEBAR_STORAGE_KEY, JSON.stringify({ left: leftSidebarOpen, right: rightSidebarOpen })); }
@@ -121,7 +125,7 @@ export function ProjectWorkspace({ projectId, identity, onBack, onSignOut, onSet
     setSelectedTaskId(taskId);
   }, [data, mutate]);
 
-  useAccountNoticeBridge({ projectId, actorMemberId: actor?.id ?? null, serverNotices: data?.notices ?? [], v2Snapshot, onOpenTask: (id) => void openTaskFromNotice(id) });
+  useAccountNoticeBridge({ projectId, actorMemberId: actor?.id ?? null, actorUserId: identity.id, serverNotices: data?.notices ?? [], activities: data?.activities ?? [], v2Snapshot, onOpenTask: (id) => void openTaskFromNotice(id), onLiveNotice: setLiveNotice });
 
   useEffect(() => {
     if (!selectedTaskId || !data) return;
@@ -161,10 +165,11 @@ export function ProjectWorkspace({ projectId, identity, onBack, onSignOut, onSet
 
   return (
     <main className={`min-h-dvh bg-slate-950 text-slate-100 lg:grid ${gridCols}`}>
-      <WorkspaceLeftSidebar data={data} stacks={stacks} currentUserId={identity.id} canWrite={Boolean(actor)} online={online} peers={peers} leftSidebarOpen={leftSidebarOpen} memberFilterId={memberFilterId} onToggleLeftSidebar={() => setLeftSidebarOpen((v) => !v)} onOpenInviteModal={() => { setTeamModalTab('invites'); setTeamModalOpen(true); }} onShowAddStack={() => setShowAddStack(true)} onSelectMemberFilter={setMemberFilterId} onOpenSettings={onSettings} onBackToProjects={onBack} onSignOut={onSignOut} />
+      <WorkspaceLeftSidebar data={data} stacks={stacks} currentUserId={identity.id} canWrite={Boolean(actor)} online={online} peers={peers} leftSidebarOpen={leftSidebarOpen} memberFilterId={memberFilterId} onToggleLeftSidebar={() => setLeftSidebarOpen((v) => !v)} onOpenInviteModal={() => { setTeamModalTab('invites'); setTeamModalOpen(true); }} onShowAddStack={() => setShowAddStack(true)} onSelectMemberFilter={setMemberFilterId} onOpenSettings={() => onSettings('appearance')} onBackToProjects={onBack} onSignOut={onSignOut} />
 
       <div className="min-w-0 w-full px-4 py-5 pb-24 sm:px-6 lg:pb-8 xl:px-8">
-        <WorkspaceTopToolbar data={data} v2Snapshot={v2Snapshot} v2Actor={v2Actor} identityName={identity.name} progress={progress} leftSidebarOpen={leftSidebarOpen} peers={peers} searchQuery={searchQuery} onSearchChange={setSearchQuery} onOpenTaskFromNotice={(id) => void openTaskFromNotice(id)} onOpenTeamModal={() => { setTeamModalTab('roster'); setTeamModalOpen(true); }} onOpenShareModal={() => { setTeamModalTab('invites'); setTeamModalOpen(true); }} onOpenSettings={onSettings} onToggleAddStack={() => setShowAddStack((v) => !v)} />
+        <LiveNoticeToast notice={liveNotice} onDismiss={() => setLiveNotice(null)} onOpenTask={(taskId, noticeId) => { if (actor) notificationService.markNoticeRead(noticeId, projectId, actor.id); void openTaskFromNotice(taskId); }} />
+        <WorkspaceTopToolbar data={data} v2Snapshot={v2Snapshot} v2Actor={v2Actor} identityName={identity.name} progress={progress} leftSidebarOpen={leftSidebarOpen} peers={peers} searchQuery={searchQuery} onSearchChange={setSearchQuery} onOpenTaskFromNotice={(id) => void openTaskFromNotice(id)} onOpenTeamModal={() => { setTeamModalTab('roster'); setTeamModalOpen(true); }} onOpenShareModal={() => { setTeamModalTab('invites'); setTeamModalOpen(true); }} onOpenSettings={() => onSettings('appearance')} onOpenNotificationSettings={() => onSettings('notifications')} onToggleAddStack={() => setShowAddStack((v) => !v)} />
 
         {data.project.accessRole === 'global_admin' && <p className="mt-4 rounded-xl border border-indigo-500/40 bg-indigo-500/10 p-3 text-sm text-indigo-100">Chế độ theo dõi của admin. Bạn không nằm trong danh sách thành viên đánh dấu công việc.</p>}
         {error && <p role="alert" className="mt-4 rounded-xl border border-rose-500/40 bg-rose-500/10 p-3 text-sm text-rose-200">{error}</p>}

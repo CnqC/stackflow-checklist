@@ -18,6 +18,7 @@ interface Props {
   onOpenTeamModal: () => void;
   onOpenShareModal?: () => void;
   onOpenSettings: () => void;
+  onOpenNotificationSettings?: () => void;
   onToggleAddStack: () => void;
 }
 
@@ -35,6 +36,7 @@ export function WorkspaceTopToolbar({
   onOpenTeamModal,
   onOpenShareModal,
   onOpenSettings,
+  onOpenNotificationSettings,
   onToggleAddStack,
 }: Props) {
   const activeCount = data.members.filter((m) => m.active).length;
@@ -86,6 +88,7 @@ export function WorkspaceTopToolbar({
               memberId={v2Actor.id}
               memberName={v2Actor.name}
               onOpenTask={onOpenTaskFromNotice}
+              onOpenSettings={onOpenNotificationSettings ?? onOpenSettings}
             />
           )}
 

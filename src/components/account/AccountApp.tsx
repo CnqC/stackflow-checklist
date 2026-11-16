@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { AppSettingsModal } from '../AppSettingsModal';
+import { AppSettingsModal, type SettingsTab } from '../AppSettingsModal';
 import { UpdateBanner } from '../UpdateSettings';
 import { translateAccountError } from '../../core/domain/projectShareLinks';
 import { accountAuthService, type AccountIdentity } from '../../infrastructure/auth/accountAuthService';
@@ -16,6 +16,7 @@ export function AccountApp() {
   const [error, setError] = useState<string | null>(null);
   const [projectId, setProjectId] = useState<string | null>(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [settingsTab, setSettingsTab] = useState<SettingsTab>('appearance');
   const [activeSnapshot, setActiveSnapshot] = useState<WorkspaceSnapshot | null>(null);
   const [activeMemberId, setActiveMemberId] = useState<string | null>(null);
 
@@ -108,7 +109,10 @@ export function AccountApp() {
             identity={identity}
             onBack={() => setProjectId(null)}
             onSignOut={() => void signOut()}
-            onSettings={() => setSettingsOpen(true)}
+            onSettings={(tab = 'appearance') => {
+              setSettingsTab(tab);
+              setSettingsOpen(true);
+            }}
             onSnapshotChange={handleSnapshotChange}
           />
         ) : (
@@ -116,15 +120,25 @@ export function AccountApp() {
             identity={identity}
             onOpen={(id) => setProjectId(id)}
             onSignOut={() => void signOut()}
-            onSettings={() => setSettingsOpen(true)}
+            onSettings={() => {
+              setSettingsTab('appearance');
+              setSettingsOpen(true);
+            }}
           />
         )
       ) : (
-        <AccountLogin error={error} onSettings={() => setSettingsOpen(true)} />
+        <AccountLogin
+          error={error}
+          onSettings={() => {
+            setSettingsTab('appearance');
+            setSettingsOpen(true);
+          }}
+        />
       )}
 
       <AppSettingsModal
         open={settingsOpen}
+        initialTab={settingsTab}
         onClose={() => setSettingsOpen(false)}
         snapshot={activeSnapshot}
         memberId={activeMemberId}
