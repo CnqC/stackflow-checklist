@@ -26,6 +26,13 @@ export function formatNoticeMessage(
   stackTitle?: string | null,
 ): { title: string; body: string } {
   const context = stackTitle ? ` · ${stackTitle}` : '';
+  if (notice.kind === 'project_activity') {
+    const subPrefix = notice.subtaskTitle?.trim() ? `${notice.subtaskTitle.trim()} · ` : '';
+    return {
+      title: `🔔 ${notice.actorName} ${notice.activityDetail || 'vừa cập nhật dự án'}`,
+      body: `${subPrefix}${notice.taskTitle}${context}`,
+    };
+  }
   if (notice.kind === 'subtask_assigned') {
     const subLabel = notice.subtaskTitle?.trim() || notice.taskTitle;
     return {

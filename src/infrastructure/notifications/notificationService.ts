@@ -224,10 +224,11 @@ export class NotificationService {
       const sounded = new Set<string>();
       for (const notice of newlyAccepted) {
         const scope = makeScopeKey(notice.workspaceId, notice.targetMemberId);
-        if (!notice.read && !isNativeNotificationPlatform() && !sounded.has(scope)) {
+        if (!notice.read && !sounded.has(scope)) {
           notificationSoundService.playForNotice(notice.workspaceId, notice.targetMemberId);
           sounded.add(scope);
         }
+        if (notice.isSelfAction) continue;
         if (this.remotePushScopes.has(scope) || !this.areDeviceAlertsEnabled(notice.workspaceId, notice.targetMemberId)) continue;
         void triggerPlatformOsNotification({
           notice,
