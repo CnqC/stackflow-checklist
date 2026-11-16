@@ -1,9 +1,9 @@
 {
-  "title": "StackFlow 1.2.2: Chuông Thông Báo & Âm Thanh Trực Tiếp Cho Mọi Thao Tác Dự Án",
+  "title": "StackFlow 1.2.3: Đồng Bộ Thời Gian Thực Đa Tài Khoản, Giao Việc & Nhật Ký Trực Tiếp",
   "changes": [
-    "Thông báo tức thì kèm âm chuông cho mọi thao tác trong dự án: thêm Task mới, tạo Stack, thêm việc nhỏ, đánh dấu hoàn thành, đổi trạng thái và khi có thành viên mới tham gia.",
-    "Bổ sung thanh thông báo nổi trực tiếp (Live Toast) góc trên màn hình kèm nút Xem đầu việc mở thẳng chi tiết công việc.",
-    "Nâng cấp Hộp Quả Chuông với công tắc bật/tắt âm nhanh 1 chạm, nút đổi 10 tiếng chuông và nút bắn thử thông báo kiểm tra ngay trên thiết bị.",
-    "Sửa triệt để cơ chế mở khóa âm thanh trình duyệt (Web Audio fallback) và làm giàu mô tả tiếng Việt trên cột Nhật ký hoạt động."
+    "Khắc phục triệt để lỗi Database Triggers trên PostgREST v12 khiến thông báo giao việc giữa 2 tài khoản và Nhật ký Hoạt động trực tiếp bị bỏ qua.",
+    "Đồng bộ nguyên tử tức thì toàn bảng công việc qua Realtime Broadcast + Postgres Changes + tự động làm mới khi mở lại tab (tiến độ %, Việc của tôi, số việc thành viên, ngăn Chi tiết đầu việc đang mở).",
+    "Hiển thị rõ người vừa tạo task, thuộc Stack nào và giao cho ai ngay trên cột Hoạt động trực tiếp.",
+    "Tự động phát chuông + hiện thông báo nổi cho người được giao việc ngay cả khi mở dự án sau thời điểm được giao."
   ]
 }
