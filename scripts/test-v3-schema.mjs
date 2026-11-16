@@ -16,8 +16,10 @@ async function asUser(userId, action) {
   await db.exec('begin');
   try {
     await db.exec('set local role authenticated');
-    await db.query("select set_config('request.jwt.claim.sub', $1, true)", [userId]);
-    await db.query("select set_config('request.jwt.claim.role', 'authenticated', true)");
+    await db.query(
+      "select set_config('request.jwt.claims', $1, true)",
+      [JSON.stringify({ sub: userId, role: 'authenticated' })],
+    );
     const result = await action();
     await db.exec('commit');
     return result;
@@ -42,7 +44,10 @@ try {
       raw_user_meta_data jsonb not null default '{}'::jsonb
     );
     create function auth.uid() returns uuid language sql stable as $$
-      select nullif(current_setting('request.jwt.claim.sub', true), '')::uuid;
+      select coalesce(
+        nullif(current_setting('request.jwt.claims', true), '')::jsonb ->> 'sub',
+        nullif(current_setting('request.jwt.claim.sub', true), '')
+      )::uuid;
     $$;
     grant usage on schema auth to authenticated;
     grant execute on function auth.uid() to authenticated;
@@ -73,6 +78,8 @@ try {
   await db.exec(v2MemberCollaboration);
   const v2TeamInvitesAndProfiles = readFileSync(new URL('../supabase/migrations/202611160001_v2_team_invites_and_profiles.sql', import.meta.url), 'utf8');
   await db.exec(v2TeamInvitesAndProfiles);
+  const v3JwtClaimsAndRealtimeSync = readFileSync(new URL('../supabase/migrations/202611160002_fix_jwt_claims_and_realtime_sync.sql', import.meta.url), 'utf8');
+  await db.exec(v3JwtClaimsAndRealtimeSync);
 
   for (const [name, id] of Object.entries(ids)) {
     await db.query(
@@ -424,6 +431,50 @@ try {
     "select count(*)::int as n from public.activity_logs where project_id=$1 and action_type='join_member'",
     [projectId],
   ))).rows[0].n >= 2, 'join_member activity must be recorded');
+
+  // Verify rich create_task activity detail, diff-based set_task_assignees, and status <-> completed sync
+  const createdActivity = (await asUser(ids.member, () => db.query(
+    "select actor_name, detail from public.activity_logs where project_id=$1 and action_type='create_task' and target_title='Task' limit 1",
+    [projectId],
+  ))).rows[0];
+  assert.equal(createdActivity.actor_name, 'owner');
+  assert.match(createdActivity.detail, /Giao cho: member/);
+
+  const statusSyncStack = (await asUser(ids.member, () => db.query(
+    "select public.create_stack($1,'SyncCheck') as id", [projectId],
+  ))).rows[0].id;
+  const syncTaskId = (await asUser(ids.owner, () => db.query(
+    "select public.create_task_with_assignees($1,$2,'SyncTask','', 'medium', null, $3::uuid[]) as id",
+    [projectId, statusSyncStack, [ownerMember.rows[0].id]],
+  ))).rows[0].id;
+  const noticesBeforeReassign = (await asUser(ids.member, () => db.query(
+    'select count(*)::int as n from public.assignment_notices where project_id=$1', [projectId],
+  ))).rows[0].n;
+  await asUser(ids.owner, () => db.query(
+    'select public.set_task_assignees($1, 1, $2::uuid[])',
+    [syncTaskId, [ownerMember.rows[0].id, member.rows[0].id]],
+  ));
+  const noticesAfterReassign = (await asUser(ids.member, () => db.query(
+    'select count(*)::int as n from public.assignment_notices where project_id=$1', [projectId],
+  ))).rows[0].n;
+  assert.equal(noticesAfterReassign, noticesBeforeReassign + 1, 'newly added assignee via set_task_assignees must receive notice');
+  await asUser(ids.owner, () => db.query(
+    'select public.set_task_assignees($1, 2, $2::uuid[])',
+    [syncTaskId, [ownerMember.rows[0].id, member.rows[0].id]],
+  ));
+  assert.equal((await asUser(ids.member, () => db.query(
+    'select count(*)::int as n from public.assignment_notices where project_id=$1', [projectId],
+  ))).rows[0].n, noticesAfterReassign, 'unchanged assignee must not receive duplicate notice');
+
+  await asUser(ids.member, () => db.query(
+    "update public.tasks set status='done' where id=$1", [syncTaskId],
+  ));
+  const doneRow = (await asUser(ids.member, () => db.query(
+    'select completed, status, completed_by_member_id from public.tasks where id=$1', [syncTaskId],
+  ))).rows[0];
+  assert.equal(doneRow.completed, true);
+  assert.equal(doneRow.status, 'done');
+  assert.equal(doneRow.completed_by_member_id, member.rows[0].id);
 
   console.log('v3 schema: RLS, multi-channel invitations, join codes, profiles, completion, membership, admin access and version conflict passed');
 } finally {

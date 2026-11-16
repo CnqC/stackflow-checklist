@@ -23,6 +23,8 @@ Last run: 2026-11-16 | Health Score: 100/100 (Google Account + V2 App Parity)
 - [x] `SLICE-12` — Xây dựng Pure Domain Engine thông báo cho mọi thao tác dự án (`projectActivityNoticeEngine.ts`: thêm Task, Stack, việc nhỏ, hoàn thành, đổi trạng thái, thành viên mới; chống trùng giao việc & chuẩn hóa mô tả tiếng Việt trên `ActivityPanel`)
 - [x] `SLICE-13` — Nâng cấp Infrastructure âm báo tức thì (`notificationSoundService.ts` unlock + synth fallback), `notificationPlatformAdapter.ts` & `accountNoticeBridge.ts` bắt trực tiếp cả `assignment_notices` lẫn `activity_logs` Realtime kèm âm thanh
 - [x] `SLICE-14` — Nâng cấp `NotificationBell`, `LiveNoticeToast`, `NotificationSettings` & `DeviceNotificationSettings` (nút bắn thử thông báo + âm thanh 1 chạm), kiểm thử E2E & phát hành đồng bộ `v1.2.2` lên Web / Desktop PWA / Android APK
+- [x] `SLICE-15` — Khắc phục lỗi gốc Database Triggers trên PostgREST v12 (`request.jwt.claims` JSON thay cho `request.jwt.claim.role` đã ngừng hỗ trợ khiến `activity_logs`, `assignment_notices`, `completed_by` bị bỏ qua trên Supabase thật), bật `REPLICA IDENTITY FULL` cho Realtime DELETE, đồng bộ 2 chiều `status <-> completed`, ghi rõ người được giao vào Nhật ký Hoạt động trực tiếp & push lên Supabase (`xwzwsysekkizxmmjjjvn`)
+- [ ] `SLICE-16` — Đồng bộ hóa tức thì toàn diện giữa các tài khoản (`Realtime Broadcast` + gom nhóm `loadProject` nguyên tử chống lệch bảng + đồng bộ khi quay lại tab + cập nhật trực tiếp `TaskDetailDrawer` đang mở + phát chuông cho việc chưa đọc mới), kiểm thử E2E 2 tài khoản & phát hành đồng bộ `v1.2.3` (Web + Desktop PWA + Android APK)
 
 ---
 
