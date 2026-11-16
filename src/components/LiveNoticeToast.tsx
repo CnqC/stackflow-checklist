@@ -32,7 +32,7 @@ export function LiveNoticeToast({ notice, onDismiss, onOpenTask }: Props) {
     <div
       role="status"
       aria-live="polite"
-      className="fixed right-3 top-16 z-[80] flex w-[calc(100vw-1.5rem)] max-w-sm items-start gap-3 rounded-2xl border border-indigo-500/50 bg-slate-900/95 p-3.5 shadow-2xl shadow-black/70 backdrop-blur sm:right-5 sm:top-18"
+      className="fixed bottom-18 right-3 z-[80] flex w-[calc(100vw-1.5rem)] max-w-sm items-start gap-3 rounded-2xl border border-indigo-500/50 bg-slate-900/95 p-3.5 shadow-2xl shadow-black/70 backdrop-blur sm:bottom-auto sm:right-5 sm:top-18"
     >
       <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-indigo-500/20 text-amber-300 ring-1 ring-indigo-500/40">
         <BellRing className="h-4 w-4" />

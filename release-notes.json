@@ -1,9 +1,9 @@
 {
-  "title": "StackFlow 1.2.1: Chia sẻ Dự Án Đa Kênh (Gmail, Zalo, Telegram) & Tự Động Vào Nhóm Qua Link",
+  "title": "StackFlow 1.2.2: Chuông Thông Báo & Âm Thanh Trực Tiếp Cho Mọi Thao Tác Dự Án",
   "changes": [
-    "Sửa triệt để đường dẫn chia sẻ dự án (?join=SF-XXXXXX) và link tải APK trên cả GitHub Pages (/stackflow-checklist/) lẫn ứng dụng Android.",
-    "Bổ sung cụm nút Gửi nhanh Link dự án qua Gmail, Zalo, Telegram kèm nút Chia sẻ 1 chạm ngay trên thanh công cụ chính.",
-    "Nâng cấp mời đích danh qua Gmail: tự động cấp quyền trong dự án đồng thời mở cửa sổ soạn thư Gmail kèm sẵn tiêu đề & đường dẫn cho đối tác.",
-    "Tự động đưa đối tác vào thẳng dự án ngay sau khi đăng nhập Google từ Link mời, kèm hướng dẫn mở sang Chrome/Safari khi bấm Link từ trình duyệt thu nhỏ của Zalo."
+    "Thông báo tức thì kèm âm chuông cho mọi thao tác trong dự án: thêm Task mới, tạo Stack, thêm việc nhỏ, đánh dấu hoàn thành, đổi trạng thái và khi có thành viên mới tham gia.",
+    "Bổ sung thanh thông báo nổi trực tiếp (Live Toast) góc trên màn hình kèm nút Xem đầu việc mở thẳng chi tiết công việc.",
+    "Nâng cấp Hộp Quả Chuông với công tắc bật/tắt âm nhanh 1 chạm, nút đổi 10 tiếng chuông và nút bắn thử thông báo kiểm tra ngay trên thiết bị.",
+    "Sửa triệt để cơ chế mở khóa âm thanh trình duyệt (Web Audio fallback) và làm giàu mô tả tiếng Việt trên cột Nhật ký hoạt động."
   ]
 }

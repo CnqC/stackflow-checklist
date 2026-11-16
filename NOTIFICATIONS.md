@@ -1,8 +1,9 @@
-# Thiết kế thông báo StackFlow
+# Thiết kế thông báo StackFlow (v1.2.2)
 
 ## Quy tắc hiện tại
 
-- `detectNewAssignmentNotices` là nơi duy nhất phát hiện việc lớn hoặc phần việc nhỏ vừa được giao. Mỗi notice có ID ổn định để không báo lặp khi đồng bộ lại.
+- **Bắt trọn vẹn mọi thao tác dự án (`projectActivityNoticeEngine` + `useAccountNoticeBridge`)**: Hệ thống đồng bộ cả `assignment_notices` (giao việc đích danh) lẫn `activity_logs` Realtime (thêm Task mới, tạo Stack mới, thêm việc nhỏ, hoàn thành/mở lại việc, đổi trạng thái và khi có thành viên mới tham gia). Các thông báo lịch sử được hydrate yên lặng lần đầu mở dự án để không bao giờ reo lặp khi tải lại trang.
+- **Âm thanh tức thì + Thanh thông báo nổi (`LiveNoticeToast`)**: Mỗi thông báo mới phát ngay tiếng chuông đã chọn (`NotificationSoundService` tự động mở khóa `AudioContext` ở tương tác đầu tiên kèm Web Audio Chime Fallback) và trượt thanh thông báo nổi góc trên màn hình kèm nút **Xem đầu việc**.
 - `NotificationService` lưu hộp chuông theo cặp dự án/thành viên. Đọc một việc, đánh dấu tất cả đã đọc và xóa lịch sử đã đọc đều dùng cùng kho này. Tắt báo trên thiết bị không làm mất notice trong app.
 - Khi app đang nhận đồng bộ, notice mới đi tới hộp chuông và, nếu người dùng cho phép, thông báo Android hoặc trình duyệt. Thông báo hệ thống có người giao, tên việc và Stack; Stack được tra từ snapshot lúc phát, không lưu trùng trong notice.
 - Android dùng channel `Việc được giao` với mức quan trọng mặc định. Web chỉ xin quyền sau khi người dùng bấm trong **Cài đặt → Thông báo**. Bấm thông báo hệ thống mở đúng đầu việc và đánh dấu notice đã đọc.

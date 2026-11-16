@@ -138,19 +138,19 @@ export const NotificationBell: React.FC<NotificationBellProps> = ({
         <div id={panelId} className="fixed inset-x-3 top-16 sm:absolute sm:inset-x-auto sm:right-0 sm:top-full sm:mt-2 sm:w-96 z-50 max-h-[calc(100dvh-5rem)] flex flex-col rounded-2xl bg-slate-900 border border-slate-700/90 shadow-2xl shadow-black/60 overflow-hidden">
           <div className="px-4 py-3 bg-slate-950/90 border-b border-slate-800 space-y-2.5">
             <div className="flex items-center justify-between gap-2">
-              <div>
+              <div className="min-w-0">
                 <div className="flex items-center gap-1.5">
-                  <span className="text-xs font-bold text-foreground">Hộp báo việc của {memberName || 'bạn'}</span>
+                  <span className="truncate text-xs font-bold text-foreground">Hộp báo việc của {memberName || 'bạn'}</span>
                   {unreadCount > 0 && (
-                    <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-rose-500/20 text-rose-300 border border-rose-500/30">{unreadCount} mới</span>
+                    <span className="shrink-0 whitespace-nowrap text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-rose-500/20 text-rose-300 border border-rose-500/30">{unreadCount} mới</span>
                   )}
                 </div>
                 <p className="text-[11px] text-slate-400 mt-0.5">Báo ngay kèm âm thanh khi thêm Task, Stack hoặc giao việc</p>
               </div>
-              <div className="flex items-center gap-1">
+              <div className="flex shrink-0 items-center gap-1">
                 {unreadCount > 0 && (
-                  <button type="button" onClick={() => notificationService.markAllRead(workspaceId, memberId)} className="inline-flex items-center gap-1 px-2 py-1 rounded-lg bg-indigo-500/15 hover:bg-indigo-500/25 text-indigo-300 text-[11px] font-medium cursor-pointer" title="Đánh dấu đã đọc hết">
-                    <CheckCheck className="w-3.5 h-3.5" /><span>Đánh dấu đã đọc hết</span>
+                  <button type="button" onClick={() => notificationService.markAllRead(workspaceId, memberId)} className="inline-flex shrink-0 whitespace-nowrap items-center gap-1 px-2 py-1 rounded-lg bg-indigo-500/15 hover:bg-indigo-500/25 text-indigo-300 text-[11px] font-medium cursor-pointer" title="Đánh dấu đã đọc hết">
+                    <CheckCheck className="w-3.5 h-3.5" /><span>Đã đọc hết</span>
                   </button>
                 )}
                 <button type="button" onClick={() => setOpen(false)} className="p-1 rounded-lg text-slate-400 hover:text-foreground hover:bg-slate-800 cursor-pointer" aria-label="Đóng hộp thông báo"><X className="w-4 h-4" /></button>
