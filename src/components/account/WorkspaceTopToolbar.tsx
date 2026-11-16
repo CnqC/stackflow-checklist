@@ -1,4 +1,4 @@
-import { Layers, Plus, Search, Settings2, Users } from 'lucide-react';
+import { Layers, Plus, Search, Settings2, Share2, Users } from 'lucide-react';
 import type { ProjectData } from '../../core/domain/accountProject';
 import { getInitials } from '../../core/domain/stackDomain';
 import type { Member, PresencePeer, WorkspaceSnapshot } from '../../types/models';
@@ -16,6 +16,7 @@ interface Props {
   onSearchChange: (next: string) => void;
   onOpenTaskFromNotice: (taskId: string) => void;
   onOpenTeamModal: () => void;
+  onOpenShareModal?: () => void;
   onOpenSettings: () => void;
   onToggleAddStack: () => void;
 }
@@ -32,6 +33,7 @@ export function WorkspaceTopToolbar({
   onSearchChange,
   onOpenTaskFromNotice,
   onOpenTeamModal,
+  onOpenShareModal,
   onOpenSettings,
   onToggleAddStack,
 }: Props) {
@@ -89,12 +91,22 @@ export function WorkspaceTopToolbar({
 
           <button
             type="button"
+            onClick={onOpenShareModal ?? onOpenTeamModal}
+            aria-label="Chia sẻ dự án qua Link, Gmail, Zalo hoặc Telegram"
+            className="inline-flex h-9 items-center gap-1.5 rounded-xl border border-indigo-500/45 bg-indigo-500/15 px-2.5 text-xs font-bold text-indigo-200 hover:bg-indigo-500/25 sm:h-10 sm:px-3 cursor-pointer"
+          >
+            <Share2 className="h-3.5 w-3.5 shrink-0 text-indigo-300 sm:h-4 sm:w-4" />
+            <span className="hidden sm:inline">Chia sẻ</span>
+          </button>
+
+          <button
+            type="button"
             onClick={onOpenTeamModal}
             aria-label="Thành viên và lời mời"
             className="hidden h-10 items-center gap-1.5 rounded-xl border border-slate-700 bg-slate-900 px-3 text-xs font-semibold text-slate-200 hover:border-indigo-500/50 hover:bg-slate-800 lg:inline-flex cursor-pointer"
           >
             <Users className="h-4 w-4 text-indigo-300" />
-            <span>Mời nhóm ({activeCount}/20)</span>
+            <span>Nhóm ({activeCount}/20)</span>
           </button>
 
           <button

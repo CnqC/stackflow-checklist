@@ -1,25 +1,14 @@
 import { useCallback, useEffect, useState } from 'react';
 import { ArrowUpRight, FolderPlus, Layers, LogOut, Settings2, Users } from 'lucide-react';
 import type { AccountProject, JoinCodePreview } from '../../core/domain/accountProject';
+import { translateAccountError } from '../../core/domain/projectShareLinks';
 import type { AccountIdentity } from '../../infrastructure/auth/accountAuthService';
-import {
-  accountProjectRepository,
-  type ProjectInvitation,
-} from '../../infrastructure/projects/accountProjectRepository';
-import {
-  accountTeamInviteRepository,
-  capturePendingJoinCodeFromUrl,
-  clearPendingJoinCode,
-} from '../../infrastructure/projects/accountTeamInviteRepository';
+import { accountProjectRepository, type ProjectInvitation } from '../../infrastructure/projects/accountProjectRepository';
+import { accountTeamInviteRepository, capturePendingJoinCodeFromUrl, clearPendingJoinCode, consumePendingJoinAutoConfirm } from '../../infrastructure/projects/accountTeamInviteRepository';
 import { DashboardCreateProjectForm } from './DashboardCreateProjectForm';
 import { DashboardJoinAndInvites } from './DashboardJoinAndInvites';
 
-interface Props {
-  identity: AccountIdentity;
-  onOpen: (projectId: string) => void;
-  onSignOut: () => void;
-  onSettings: () => void;
-}
+interface Props { identity: AccountIdentity; onOpen: (projectId: string) => void; onSignOut: () => void; onSettings: () => void; }
 
 export function ProjectDashboard({ identity, onOpen, onSignOut, onSettings }: Props) {
   const [projects, setProjects] = useState<AccountProject[]>([]);
@@ -31,6 +20,7 @@ export function ProjectDashboard({ identity, onOpen, onSignOut, onSettings }: Pr
   const [showCreate, setShowCreate] = useState(false);
   const [pendingCodeRaw, setPendingCodeRaw] = useState<string | null>(() => capturePendingJoinCodeFromUrl());
   const [pendingCodePreview, setPendingCodePreview] = useState<JoinCodePreview | null>(null);
+  const [previewChecked, setPreviewChecked] = useState(false);
 
   const refresh = useCallback(async () => {
     const [nextProjects, nextInvitations, admin] = await Promise.all([
@@ -49,11 +39,36 @@ export function ProjectDashboard({ identity, onOpen, onSignOut, onSettings }: Pr
     void refresh()
       .then(async (admin) => {
         if (!active || admin || !pendingCodeRaw) return;
+
+        // If user explicitly clicked Google Sign-In on the invite screen, join & open right away
+        if (consumePendingJoinAutoConfirm(pendingCodeRaw)) {
+          try {
+            const joinedId = await accountTeamInviteRepository.joinByCode(pendingCodeRaw);
+            if (!active) return;
+            clearPendingJoinCode();
+            setPendingCodeRaw(null);
+            setPendingCodePreview(null);
+            await refresh();
+            if (active) onOpen(joinedId);
+            return;
+          } catch (cause) {
+            if (active) setError(translateAccountError(cause));
+          }
+        }
+
         const preview = await accountTeamInviteRepository.previewByJoinCode(pendingCodeRaw).catch(() => null);
-        if (active) setPendingCodePreview(preview);
+        if (!active) return;
+        setPendingCodePreview(preview);
+        setPreviewChecked(true);
+        if (preview?.alreadyMember && window.location.search.toLowerCase().includes('join=')) {
+          clearPendingJoinCode();
+          setPendingCodeRaw(null);
+          setPendingCodePreview(null);
+          onOpen(preview.projectId);
+        }
       })
       .catch((cause: unknown) => {
-        if (active) setError(cause instanceof Error ? cause.message : String(cause));
+        if (active) setError(translateAccountError(cause));
       })
       .finally(() => {
         if (active) setLoading(false);
@@ -61,18 +76,11 @@ export function ProjectDashboard({ identity, onOpen, onSignOut, onSettings }: Pr
     return () => {
       active = false;
     };
-  }, [refresh, pendingCodeRaw]);
+  }, [refresh, pendingCodeRaw, onOpen]);
 
   async function runBusy(action: () => Promise<void>) {
-    setBusy(true);
-    setError(null);
-    try {
-      await action();
-    } catch (cause) {
-      setError(cause instanceof Error ? cause.message : String(cause));
-    } finally {
-      setBusy(false);
-    }
+    setBusy(true); setError(null);
+    try { await action(); } catch (cause) { setError(translateAccountError(cause)); } finally { setBusy(false); }
   }
 
   return (
@@ -104,8 +112,7 @@ export function ProjectDashboard({ identity, onOpen, onSignOut, onSettings }: Pr
               <span className="hidden sm:inline">Giao diện &amp; Cài đặt</span>
             </button>
             <button type="button" onClick={onSignOut} className="inline-flex items-center gap-1.5 rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-xs font-semibold text-slate-300 hover:bg-slate-800 cursor-pointer">
-              <LogOut className="h-4 w-4" />
-              Đăng xuất
+              <LogOut className="h-4 w-4" /> Đăng xuất
             </button>
           </div>
         </header>
@@ -122,6 +129,7 @@ export function ProjectDashboard({ identity, onOpen, onSignOut, onSettings }: Pr
           <DashboardJoinAndInvites
             busy={busy}
             isAdmin={isAdmin}
+            previewChecked={previewChecked}
             pendingCodePreview={pendingCodePreview}
             pendingCodeRaw={pendingCodeRaw}
             invitations={invitations}
@@ -163,8 +171,7 @@ export function ProjectDashboard({ identity, onOpen, onSignOut, onSettings }: Pr
               <p className="text-xs text-slate-400">Chọn một dự án để vào bảng Stack tuần tự hoặc tạo không gian mới cho nhóm.</p>
             </div>
             <button type="button" onClick={() => setShowCreate((v) => !v)} className="inline-flex min-h-11 items-center gap-2 rounded-xl bg-indigo-600 px-4 text-sm font-bold text-white shadow-lg shadow-indigo-600/20 hover:bg-indigo-500 cursor-pointer">
-              <FolderPlus className="h-4 w-4" />
-              Tạo dự án mới
+              <FolderPlus className="h-4 w-4" /> Tạo dự án mới
             </button>
           </div>
 
@@ -192,7 +199,7 @@ export function ProjectDashboard({ identity, onOpen, onSignOut, onSettings }: Pr
               <Users className="mx-auto mb-3 h-9 w-9 text-indigo-400/80" />
               <p className="font-semibold text-foreground">Bạn chưa tham gia dự án nào</p>
               <p className="mt-1 text-xs">
-                Hãy bấm <strong>Tạo dự án mới</strong> ở góc phải, dán <strong>Mã mời SF-XXXXXX</strong> ở thanh phía trên, hoặc nhờ trưởng nhóm mời email <strong>{identity.email}</strong>.
+                Hãy bấm <strong>Tạo dự án mới</strong> ở góc phải, dán <strong>Mã mời SF-XXXXXX</strong> ở thanh phía trên, hoặc nhờ trưởng nhóm gửi Link mời cho <strong>{identity.email}</strong>.
               </p>
             </div>
           ) : (

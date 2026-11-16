@@ -6,6 +6,7 @@ import type {
   ProjectJoinLinkInfo,
   ProjectMember,
 } from '../../../core/domain/accountProject';
+import { translateAccountError } from '../../../core/domain/projectShareLinks';
 import { accountProjectRepository } from '../../../infrastructure/projects/accountProjectRepository';
 import { accountTeamInviteRepository } from '../../../infrastructure/projects/accountTeamInviteRepository';
 import type { PresencePeer } from '../../../types/models';
@@ -29,19 +30,12 @@ interface Props {
 }
 
 export function ProjectTeamModal({
-  open,
-  initialTab = 'roster',
-  project,
-  members,
-  currentUserId,
-  canManageProject,
-  peers,
-  onClose,
-  onRefreshProject,
-  onFilterByMember,
+  open, initialTab = 'roster', project, members, currentUserId, canManageProject, peers,
+  onClose, onRefreshProject, onFilterByMember,
 }: Props) {
   const [tab, setTab] = useState<TeamModalTab>(initialTab);
   const [busy, setBusy] = useState(false);
+  const [loadingInviteMeta, setLoadingInviteMeta] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [joinLink, setJoinLink] = useState<ProjectJoinLinkInfo | null>(null);
   const [pendingInvites, setPendingInvites] = useState<PendingEmailInvitation[]>([]);
@@ -52,19 +46,25 @@ export function ProjectTeamModal({
 
   const loadInviteMeta = useCallback(async () => {
     if (!canManageProject) return;
-    const [link, pending] = await Promise.all([
-      accountTeamInviteRepository.getJoinLink(project.id),
-      accountTeamInviteRepository.listPendingInvitations(project.id),
-    ]);
-    setJoinLink(link);
-    setPendingInvites(pending);
+    setLoadingInviteMeta(true);
+    setError(null);
+    try {
+      const [link, pending] = await Promise.all([
+        accountTeamInviteRepository.getJoinLink(project.id),
+        accountTeamInviteRepository.listPendingInvitations(project.id),
+      ]);
+      setJoinLink(link);
+      setPendingInvites(pending);
+    } catch (cause) {
+      setError(translateAccountError(cause));
+    } finally {
+      setLoadingInviteMeta(false);
+    }
   }, [canManageProject, project.id]);
 
   useEffect(() => {
     if (!open || !canManageProject) return;
-    void loadInviteMeta().catch((cause: unknown) => {
-      setError(cause instanceof Error ? cause.message : String(cause));
-    });
+    void loadInviteMeta();
   }, [open, canManageProject, loadInviteMeta]);
 
   useEffect(() => {
@@ -86,7 +86,7 @@ export function ProjectTeamModal({
     try {
       await action();
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : String(cause));
+      setError(translateAccountError(cause));
     } finally {
       setBusy(false);
     }
@@ -108,23 +108,17 @@ export function ProjectTeamModal({
         <div className="flex items-center justify-between border-b border-slate-800 px-5 py-4">
           <div>
             <h2 className="text-base font-extrabold text-foreground sm:text-lg">
-              Quản lý Nhóm, Mời đồng đội &amp; App
+              Quản lý Nhóm, Chia sẻ Link &amp; App
             </h2>
             <p className="text-xs text-slate-400">
               {project.name} ({project.code}) • Đăng nhập Google bảo mật
             </p>
           </div>
-          <button
-            type="button"
-            aria-label="Đóng cửa sổ nhóm"
-            onClick={onClose}
-            className="rounded-xl p-2 text-slate-400 hover:bg-slate-800 hover:text-foreground cursor-pointer"
-          >
+          <button type="button" aria-label="Đóng cửa sổ nhóm" onClick={onClose} className="rounded-xl p-2 text-slate-400 hover:bg-slate-800 hover:text-foreground cursor-pointer">
             <X className="h-5 w-5" />
           </button>
         </div>
 
-        {/* V2 Pill Tabs matching 08_team_invite_modal.png */}
         <div role="tablist" className="grid grid-cols-3 gap-1.5 border-b border-slate-800 bg-slate-900/50 p-2.5">
           {(
             [
@@ -210,8 +204,10 @@ export function ProjectTeamModal({
               project={project}
               canManageProject={canManageProject}
               busy={busy}
+              loadingInviteMeta={loadingInviteMeta}
               joinLink={joinLink}
               pendingInvites={pendingInvites}
+              onRetryLoad={() => void loadInviteMeta()}
               onInviteEmail={(email, jobTitle) =>
                 runAction(async () => {
                   await accountProjectRepository.invite(project.id, email, jobTitle);

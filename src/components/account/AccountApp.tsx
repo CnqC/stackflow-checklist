@@ -1,7 +1,9 @@
 import { useCallback, useEffect, useState } from 'react';
 import { AppSettingsModal } from '../AppSettingsModal';
 import { UpdateBanner } from '../UpdateSettings';
+import { translateAccountError } from '../../core/domain/projectShareLinks';
 import { accountAuthService, type AccountIdentity } from '../../infrastructure/auth/accountAuthService';
+import { capturePendingJoinCodeFromUrl } from '../../infrastructure/projects/accountTeamInviteRepository';
 import { pwaInstallManager } from '../../infrastructure/pwa/pwaInstallManager';
 import type { WorkspaceSnapshot } from '../../types/models';
 import { AccountLogin } from './AccountLogin';
@@ -18,7 +20,16 @@ export function AccountApp() {
   const [activeMemberId, setActiveMemberId] = useState<string | null>(null);
 
   useEffect(() => {
+    capturePendingJoinCodeFromUrl();
     pwaInstallManager.start();
+    const syncJoinNavigation = () => {
+      if (capturePendingJoinCodeFromUrl()) {
+        setProjectId(null);
+      }
+    };
+    window.addEventListener('popstate', syncJoinNavigation);
+    window.addEventListener('hashchange', syncJoinNavigation);
+
     let active = true;
     let unsubscribe: () => void = () => undefined;
     let stopNative: () => void = () => undefined;
@@ -32,31 +43,33 @@ export function AccountApp() {
           if (active) setIdentity(next);
         })
         .catch((cause: unknown) => {
-          if (active) setError(cause instanceof Error ? cause.message : String(cause));
+          if (active) setError(translateAccountError(cause));
         })
         .finally(() => {
           if (active) setLoading(false);
         });
       void accountAuthService
         .listenNativeRedirect((cause) => {
-          if (active) setError(cause.message);
+          if (active) setError(translateAccountError(cause));
         })
         .then((stop) => {
           if (active) stopNative = stop;
           else stop();
         })
         .catch((cause: unknown) => {
-          if (active) setError(cause instanceof Error ? cause.message : String(cause));
+          if (active) setError(translateAccountError(cause));
         });
     } catch (cause) {
       queueMicrotask(() => {
         if (!active) return;
-        setError(cause instanceof Error ? cause.message : String(cause));
+        setError(translateAccountError(cause));
         setLoading(false);
       });
     }
     return () => {
       active = false;
+      window.removeEventListener('popstate', syncJoinNavigation);
+      window.removeEventListener('hashchange', syncJoinNavigation);
       unsubscribe();
       stopNative();
     };

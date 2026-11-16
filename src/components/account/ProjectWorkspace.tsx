@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Activity, ArrowLeft, CheckSquare2, Filter, PanelRightClose, PanelRightOpen, Search, UserCheck, Users } from 'lucide-react';
 import type { ProjectData, ProjectStack, ProjectTable } from '../../core/domain/accountProject';
+import { translateAccountError } from '../../core/domain/projectShareLinks';
 import { sortProjectStacks, type StackSort } from '../../core/domain/accountStack';
 import { toV2WorkspaceSnapshot } from '../../core/domain/accountV2Snapshot';
 import type { AccountIdentity } from '../../infrastructure/auth/accountAuthService';
@@ -29,7 +30,7 @@ interface Props {
 
 type TaskFilter = 'all' | 'mine' | 'incomplete' | 'doing' | 'blocked' | 'done';
 const SIDEBAR_STORAGE_KEY = 'stackflow_v3_sidebars';
-const errText = (cause: unknown) => (cause instanceof Error ? cause.message : String(cause));
+const errText = (cause: unknown) => translateAccountError(cause);
 
 function readSidebarState(): { left: boolean; right: boolean } {
   if (typeof window === 'undefined') return { left: true, right: true };
@@ -163,7 +164,7 @@ export function ProjectWorkspace({ projectId, identity, onBack, onSignOut, onSet
       <WorkspaceLeftSidebar data={data} stacks={stacks} currentUserId={identity.id} canWrite={Boolean(actor)} online={online} peers={peers} leftSidebarOpen={leftSidebarOpen} memberFilterId={memberFilterId} onToggleLeftSidebar={() => setLeftSidebarOpen((v) => !v)} onOpenInviteModal={() => { setTeamModalTab('invites'); setTeamModalOpen(true); }} onShowAddStack={() => setShowAddStack(true)} onSelectMemberFilter={setMemberFilterId} onOpenSettings={onSettings} onBackToProjects={onBack} onSignOut={onSignOut} />
 
       <div className="min-w-0 w-full px-4 py-5 pb-24 sm:px-6 lg:pb-8 xl:px-8">
-        <WorkspaceTopToolbar data={data} v2Snapshot={v2Snapshot} v2Actor={v2Actor} identityName={identity.name} progress={progress} leftSidebarOpen={leftSidebarOpen} peers={peers} searchQuery={searchQuery} onSearchChange={setSearchQuery} onOpenTaskFromNotice={(id) => void openTaskFromNotice(id)} onOpenTeamModal={() => { setTeamModalTab('roster'); setTeamModalOpen(true); }} onOpenSettings={onSettings} onToggleAddStack={() => setShowAddStack((v) => !v)} />
+        <WorkspaceTopToolbar data={data} v2Snapshot={v2Snapshot} v2Actor={v2Actor} identityName={identity.name} progress={progress} leftSidebarOpen={leftSidebarOpen} peers={peers} searchQuery={searchQuery} onSearchChange={setSearchQuery} onOpenTaskFromNotice={(id) => void openTaskFromNotice(id)} onOpenTeamModal={() => { setTeamModalTab('roster'); setTeamModalOpen(true); }} onOpenShareModal={() => { setTeamModalTab('invites'); setTeamModalOpen(true); }} onOpenSettings={onSettings} onToggleAddStack={() => setShowAddStack((v) => !v)} />
 
         {data.project.accessRole === 'global_admin' && <p className="mt-4 rounded-xl border border-indigo-500/40 bg-indigo-500/10 p-3 text-sm text-indigo-100">Chế độ theo dõi của admin. Bạn không nằm trong danh sách thành viên đánh dấu công việc.</p>}
         {error && <p role="alert" className="mt-4 rounded-xl border border-rose-500/40 bg-rose-500/10 p-3 text-sm text-rose-200">{error}</p>}
