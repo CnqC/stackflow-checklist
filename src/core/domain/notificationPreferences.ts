@@ -18,6 +18,8 @@ export interface NotificationPreferences {
   soundId: NotificationSoundId;
   soundVolume: number;
   tabBadgeEnabled: boolean;
+  activityAlertsEnabled: boolean;
+  selfActionFeedbackEnabled: boolean;
 }
 
 export const DEFAULT_NOTIFICATION_PREFERENCES: NotificationPreferences = {
@@ -25,6 +27,8 @@ export const DEFAULT_NOTIFICATION_PREFERENCES: NotificationPreferences = {
   soundId: 'notify-1',
   soundVolume: 0.45,
   tabBadgeEnabled: true,
+  activityAlertsEnabled: true,
+  selfActionFeedbackEnabled: true,
 };
 
 export function sanitizeNotificationPreferences(raw: unknown): NotificationPreferences {
@@ -41,5 +45,9 @@ export function sanitizeNotificationPreferences(raw: unknown): NotificationPrefe
       ? Math.max(0, Math.min(1, value.soundVolume)) : DEFAULT_NOTIFICATION_PREFERENCES.soundVolume,
     tabBadgeEnabled: typeof value.tabBadgeEnabled === 'boolean'
       ? value.tabBadgeEnabled : DEFAULT_NOTIFICATION_PREFERENCES.tabBadgeEnabled,
+    activityAlertsEnabled: typeof value.activityAlertsEnabled === 'boolean'
+      ? value.activityAlertsEnabled : DEFAULT_NOTIFICATION_PREFERENCES.activityAlertsEnabled,
+    selfActionFeedbackEnabled: typeof value.selfActionFeedbackEnabled === 'boolean'
+      ? value.selfActionFeedbackEnabled : DEFAULT_NOTIFICATION_PREFERENCES.selfActionFeedbackEnabled,
   };
 }

@@ -20,6 +20,9 @@ Last run: 2026-11-16 | Health Score: 100/100 (Google Account + V2 App Parity)
 - [x] `SLICE-09` — Sửa gốc tầng Domain & Infrastructure Chia Sẻ Dự Án (`projectShareLinks.ts`, `shareChannelLauncher.ts`, sửa lỗi mất subpath `/stackflow-checklist/` trên GitHub Pages, lỗi `https://localhost` trên APK, lỗi URL `.io./StackFlow-Checklist.apk`, lưu giữ `?join=` bền vững qua `localStorage` + `sessionStorage` & Việt hóa thông báo lỗi)
 - [x] `SLICE-10` — Nâng cấp UI Chia Sẻ Đa Kênh (`Gmail` / `Zalo` / `Telegram` / `Copy Link`), nút Chia sẻ 1 chạm trên Top Toolbar (Desktop + Mobile), tự động gửi thư Gmail kèm Link khi mời email, hướng dẫn vượt WebView nhúng Zalo & tự mở dự án sau Google OAuth
 - [x] `SLICE-11` — Kiểm thử tích hợp toàn diện (Unit + Component + DB + Browser Preview Desktop/Mobile), đóng gói bản build Web/PWA + `StackFlow-Checklist.apk` sạch sẵn sàng gửi đối tác & chốt sổ bàn giao
+- [x] `SLICE-12` — Xây dựng Pure Domain Engine thông báo cho mọi thao tác dự án (`projectActivityNoticeEngine.ts`: thêm Task, Stack, việc nhỏ, hoàn thành, đổi trạng thái, thành viên mới; chống trùng giao việc & chuẩn hóa mô tả tiếng Việt trên `ActivityPanel`)
+- [ ] `SLICE-13` — Nâng cấp Infrastructure âm báo tức thì (`notificationSoundService.ts` unlock + synth fallback), `notificationPlatformAdapter.ts` & `accountNoticeBridge.ts` bắt trực tiếp cả `assignment_notices` lẫn `activity_logs` Realtime kèm âm thanh
+- [ ] `SLICE-14` — Nâng cấp `NotificationBell`, `LiveNoticeToast`, `NotificationSettings` & `DeviceNotificationSettings` (nút bắn thử thông báo + âm thanh 1 chạm), kiểm thử E2E & phát hành đồng bộ `v1.2.2` lên Web / Desktop PWA / Android APK
 
 ---
 

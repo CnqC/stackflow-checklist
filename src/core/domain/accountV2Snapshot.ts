@@ -1,4 +1,5 @@
 import type { ProjectData } from './accountProject';
+import { describeProjectActivityVi } from './projectActivityNoticeEngine';
 import { getInitials, MEMBER_PALETTE } from './stackDomain';
 import type { ActivityLog, WorkspaceSnapshot } from '../../types/models';
 
@@ -118,7 +119,7 @@ export function toV2WorkspaceSnapshot(data: ProjectData): WorkspaceSnapshot {
         '#6366f1',
       actionType: mapActivityActionType(activity.action_type, activity.detail),
       targetTitle: activity.target_title,
-      detail: activity.detail,
+      detail: describeProjectActivityVi(activity.action_type, activity.detail).detailVi,
       createdAt: activity.created_at,
     })),
   };

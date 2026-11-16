@@ -4,7 +4,7 @@ export const CURRENT_SCHEMA_VERSION = 2;
 export type TaskStatus = 'todo' | 'doing' | 'blocked' | 'done';
 export type TaskPriority = 'low' | 'medium' | 'high';
 export type SyncMode = 'supabase' | 'relay' | 'local';
-export type AppNoticeKind = 'task_assigned' | 'subtask_assigned';
+export type AppNoticeKind = 'task_assigned' | 'subtask_assigned' | 'project_activity';
 
 export interface Workspace {
   id: string;
@@ -87,6 +87,10 @@ export interface AppNotice {
   targetMemberId: string;
   actorName: string;
   kind: AppNoticeKind;
+  activityAction?: string;
+  activityDetail?: string;
+  activityBadge?: string;
+  isSelfAction?: boolean;
   taskId: string;
   taskTitle: string;
   subtaskTitle?: string;
